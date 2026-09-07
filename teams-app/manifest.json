@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.7",
+  "id": "38514aae-7e91-44f7-938e-c64f7e22812d",
+  "packageName": "com.cmc.spike.approveonmsteam",
+  "developer": {
+    "name": "CMC - Technical Spike",
+    "websiteUrl": "https://example.com",
+    "privacyUrl": "https://example.com/privacy",
+    "termsOfUseUrl": "https://example.com/terms"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "BPM Approval (Spike)",
+    "full": "BPM Approval - My Tasks - Technical Feasibility Spike"
+  },
+  "description": {
+    "short": "Xem và duyệt task BPM ngay trên Teams",
+    "full": "Tab 'My Tasks' hiển thị danh sách task BPM đang chờ bạn xử lý, thao tác Đồng ý / Từ chối / Huỷ ngay trên Teams mà không cần đăng nhập BPM."
+  },
+  "accentColor": "#0B6A0B",
+  "staticTabs": [
+    {
+      "entityId": "my-tasks",
+      "name": "My Tasks",
+      "contentUrl": "https://g3dxfnhr-3978.jpe1.devtunnels.ms/my-tasks.html",
+      "scopes": ["personal"]
+    }
+  ],
+  "bots": [
+    {
+      "botId": "c511f9a8-edaf-46c5-904f-30a6742ede59",
+      "scopes": ["personal"],
+      "supportsFiles": false,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": ["identity"],
+  "validDomains": ["g3dxfnhr-3978.jpe1.devtunnels.ms"]
+}

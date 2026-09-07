@@ -1,0 +1,29 @@
+{
+  "name": "approve-on-msteam",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Technical spike: BPM approval task -> Microsoft Teams Adaptive Card -> callback to BPM",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "trigger": "tsx scripts/trigger-task.ts"
+  },
+  "dependencies": {
+    "botbuilder": "^4.23.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "imapflow": "^1.6.5",
+    "mailparser": "^3.9.14",
+    "nodemailer": "^9.0.5"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/mailparser": "^3.4.6",
+    "@types/nodemailer": "^8.0.1",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

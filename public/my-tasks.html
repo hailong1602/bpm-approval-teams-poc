@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>My Tasks</title>
+<script src="https://res.cdn.office.net/teams-js/2.24.0/js/MicrosoftTeams.min.js" crossorigin="anonymous"></script>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --border: #dde1e7;
+    --text: #182230;
+    --text-muted: #5b6472;
+    --brand: #0b3d66;
+    --green: #1f7a3f;
+    --green-bg: #e6f4ea;
+    --amber: #92720a;
+    --amber-bg: #fdf3d9;
+    --red: #b3261e;
+    --red-bg: #fbeaea;
+    --gray-bg: #eef0f2;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", -apple-system, Arial, sans-serif; margin: 0; padding: 1.1rem; background: var(--bg); color: var(--text); }
+  .header-row { display: flex; align-items: center; gap: 0.6rem; }
+  h1 { font-size: 1.05rem; margin: 0 0 0.15rem; font-weight: 700; }
+  .pending-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--red); color: #fff; font-size: 0.72rem; font-weight: 700; }
+  .pending-badge.zero { background: #b7bec7; }
+  p.sub { color: var(--text-muted); margin: 0 0 0.9rem; font-size: 0.82rem; }
+  .warn { border-left: 3px solid var(--brand); background: #fff; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
+  .warn strong { color: var(--text); }
+
+  /* --- list view --- */
+  .row { background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 0.8rem 0.95rem; margin-bottom: 0.55rem; }
+  .row-main { cursor: pointer; }
+  .row-main .title { font-weight: 600; font-size: 0.92rem; }
+  .row-main .title .chevron { color: #9aa1ab; font-weight: 400; font-size: 0.85rem; margin-left: 4px; }
+  .row-main .meta { color: var(--text-muted); font-size: 0.78rem; margin-top: 0.15rem; }
+  .status { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 0.7rem; font-weight: 700; margin-top: 0.4rem; }
+  .PENDING { background: var(--amber-bg); color: var(--amber); }
+  .APPROVED { background: var(--green-bg); color: var(--green); }
+  .REJECTED { background: var(--red-bg); color: var(--red); }
+  .CANCELLED { background: var(--gray-bg); color: #555; }
+  .actions { margin-top: 0.6rem; }
+  button { margin-right: 6px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
+  button.approve { border-color: var(--green); color: var(--green); }
+  button.reject { border-color: var(--red); color: var(--red); }
+  button.cancel { border-color: #6b7280; color: #4b5563; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.back { border: none; background: none; color: var(--brand); padding: 0; font-size: 0.82rem; font-weight: 600; cursor: pointer; margin-bottom: 0.9rem; }
+  button.back:hover { text-decoration: underline; }
+  .empty { color: var(--text-muted); font-size: 0.85rem; padding: 1rem 0; }
+
+  /* --- detail view --- */
+  .detail-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 1.05rem 1.2rem; }
+  .detail-card .title { font-weight: 700; font-size: 1rem; margin-bottom: 0.2rem; }
+  .detail-card .meta { color: var(--text-muted); font-size: 0.8rem; }
+  .detail-card a { color: var(--brand); }
+  .detail-body { white-space: pre-wrap; font-size: 0.86rem; line-height: 1.55; background: #fafbfc; border: 1px solid var(--border); border-radius: 6px; padding: 0.8rem 1rem; margin: 0.9rem 0; }
+  .detail-history { font-size: 0.76rem; color: var(--text-muted); margin: 0.6rem 0 0; padding-left: 1.1rem; }
+</style>
+</head>
+<body>
+<div class="header-row">
+  <h1>My Tasks</h1>
+  <span class="pending-badge zero" id="pendingBadge">0</span>
+</div>
+<p class="sub" id="whoami">Đang tải danh sách...</p>
+<div class="warn"><strong>Lưu ý:</strong> Danh tính lấy từ Teams context chỉ dùng để lọc hiển thị trong bản spike này — <strong>không</strong> phải bằng chứng xác thực. Production cần Teams SSO (xác minh token phía server) trước khi tin actor này.</div>
+<div id="view"></div>
+
+<script>
+// Phải khớp BPM_API_KEY trong .env — chỉ chặn truy cập ngẫu nhiên qua tunnel
+// công khai (Power Automate), KHÔNG phải xác thực thật (giá trị lộ ra trong
+// mã nguồn trang này). Xem docs/power-automate-flows.md.
+const API_KEY = 'cfyQMVKyX2-5O5dEIV8TOgxx3T8ksaTB';
+
+let currentUser = null;
+let allTasks = [];
+let selectedTaskId = null;
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function actionButtons(t) {
+  const disabled = t.status !== 'PENDING';
+  return `
+    <div class="actions">
+      <button class="approve" ${disabled ? 'disabled' : ''} onclick="event.stopPropagation(); act('${t.id}','approve')">Đồng ý</button>
+      <button class="reject" ${disabled ? 'disabled' : ''} onclick="event.stopPropagation(); act('${t.id}','reject')">Từ chối</button>
+      <button class="cancel" ${disabled ? 'disabled' : ''} onclick="event.stopPropagation(); act('${t.id}','cancel')">Huỷ</button>
+    </div>`;
+}
+
+async function loadTasks() {
+  if (!currentUser) return;
+  const res = await fetch(`/bpm/tasks?assignee=${encodeURIComponent(currentUser.email)}`);
+  allTasks = await res.json();
+
+  const pendingCount = allTasks.filter(t => t.status === 'PENDING').length;
+  const badge = document.getElementById('pendingBadge');
+  badge.textContent = pendingCount;
+  badge.classList.toggle('zero', pendingCount === 0);
+  document.title = pendingCount > 0 ? `(${pendingCount}) My Tasks` : 'My Tasks';
+
+  renderCurrentView();
+}
+
+function renderCurrentView() {
+  const selected = selectedTaskId && allTasks.find(t => t.id === selectedTaskId);
+  if (selected) {
+    renderDetail(selected);
+  } else {
+    selectedTaskId = null;
+    renderList(allTasks);
+  }
+}
+
+function renderList(tasks) {
+  const view = document.getElementById('view');
+  if (!tasks.length) {
+    view.innerHTML = '<div class="empty">Không có task nào đang chờ bạn.</div>';
+    return;
+  }
+  view.innerHTML = tasks.map(t => `
+    <div class="row">
+      <div class="row-main" onclick="openDetail('${t.id}')">
+        <div class="title">${escapeHtml(t.title)}<span class="chevron">›</span></div>
+        <div class="meta">#${t.id.slice(0,8)} · từ ${escapeHtml(t.requester)} · ${new Date(t.createdAt).toLocaleString('vi-VN')}</div>
+        <div><span class="status ${t.status}">${t.status}</span>${t.decidedVia ? ` <span class="meta">via ${t.decidedVia}</span>` : ''}${t.emailFile ? ' <span class="meta">từ email</span>' : ''}</div>
+      </div>
+      ${actionButtons(t)}
+    </div>
+  `).join('');
+}
+
+function renderDetail(t) {
+  const view = document.getElementById('view');
+  view.innerHTML = `
+    <button class="back" onclick="closeDetail()">‹ Quay lại danh sách</button>
+    <div class="detail-card">
+      <div class="title">${escapeHtml(t.title)}</div>
+      <div class="meta">#${t.id.slice(0,8)} · từ ${escapeHtml(t.requester)} · ${new Date(t.createdAt).toLocaleString('vi-VN')}</div>
+      <div><span class="status ${t.status}">${t.status}</span>${t.decidedVia ? ` <span class="meta">via ${t.decidedVia}${t.decidedBy ? ' · ' + escapeHtml(t.decidedBy) : ''}</span>` : ''}</div>
+      <div class="detail-body">${escapeHtml(t.detail || '(Không có nội dung chi tiết)')}</div>
+      ${t.emailFile ? `<p><a href="/bpm/tasks/${t.id}/email" target="_blank">Mở email gốc (.eml) — xem đầy đủ nội dung và file đính kèm</a></p>` : ''}
+      ${actionButtons(t)}
+      <ul class="detail-history">${t.history.map(h => `<li>${new Date(h.at).toLocaleString('vi-VN')} — ${escapeHtml(h.event)}</li>`).join('')}</ul>
+    </div>
+  `;
+}
+
+function openDetail(id) {
+  selectedTaskId = id;
+  renderCurrentView();
+}
+
+function closeDetail() {
+  selectedTaskId = null;
+  renderCurrentView();
+}
+
+async function act(id, action) {
+  await fetch(`/bpm/tasks/${id}/actions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+    body: JSON.stringify({ action, actor: currentUser.name, source: 'MS_TEAMS_TAB' }),
+  });
+  loadTasks();
+}
+
+async function init() {
+  const params = new URLSearchParams(location.search);
+  const overrideEmail = params.get('assignee'); // dev-only fallback for testing outside Teams
+
+  try {
+    await microsoftTeams.app.initialize();
+    const context = await microsoftTeams.app.getContext();
+    currentUser = {
+      email: context.user.userPrincipalName,
+      name: context.user.displayName || context.user.userPrincipalName,
+    };
+  } catch (err) {
+    if (overrideEmail) {
+      currentUser = { email: overrideEmail, name: overrideEmail };
+    } else {
+      document.getElementById('whoami').textContent = 'Không lấy được context Teams (đang mở ngoài Teams?) — thêm ?assignee=email@... vào URL để test.';
+      return;
+    }
+  }
+
+  document.getElementById('whoami').textContent = `Đang xem task của: ${currentUser.email}`;
+  loadTasks();
+  setInterval(loadTasks, 3000);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,715 @@
+<title>Cơ chế hoạt động — ApproveOnMSTeam</title>
+<meta name="description" content="Sơ đồ và giải thích chi tiết luồng: task BPM → Adaptive Card trên Teams → callback ngược về BPM." />
+<style>
+  :root {
+    --ink: #171b23;
+    --paper: #eef1ef;
+    --paper-raised: #ffffff;
+    --line: #ccd4d0;
+    --accent: #2f6f5e;
+    --accent-soft: #dfeae5;
+    --ok: #227a4c;
+    --danger: #b03a32;
+    --warn: #9c7209;
+    --muted-fg: #54615d;
+    --diagram-paper: #fbfcf9;
+    --diagram-ink: #1b2420;
+    --diagram-line: #b9c4bd;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e9ede9;
+      --paper: #10140f;
+      --paper-raised: #1a221c;
+      --line: #2b3531;
+      --accent: #6cbfa4;
+      --accent-soft: #1d352c;
+      --ok: #52c186;
+      --danger: #e2726a;
+      --warn: #d9a53c;
+      --muted-fg: #9fb0aa;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e9ede9;
+    --paper: #10140f;
+    --paper-raised: #1a221c;
+    --line: #2b3531;
+    --accent: #6cbfa4;
+    --accent-soft: #1d352c;
+    --ok: #52c186;
+    --danger: #e2726a;
+    --warn: #d9a53c;
+    --muted-fg: #9fb0aa;
+  }
+  :root[data-theme="light"] {
+    --ink: #171b23;
+    --paper: #eef1ef;
+    --paper-raised: #ffffff;
+    --line: #ccd4d0;
+    --accent: #2f6f5e;
+    --accent-soft: #dfeae5;
+    --ok: #227a4c;
+    --danger: #b03a32;
+    --warn: #9c7209;
+    --muted-fg: #54615d;
+  }
+
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 27px, color-mix(in srgb, var(--line) 35%, transparent) 28px),
+      repeating-linear-gradient(90deg, transparent, transparent 27px, color-mix(in srgb, var(--line) 35%, transparent) 28px),
+      var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    line-height: 1.65;
+    font-size: 17px;
+  }
+  a { color: var(--accent); }
+  ::selection { background: var(--accent-soft); }
+
+  .wrap { max-width: 780px; margin: 0 auto; padding: 4.5rem 1.5rem 6rem; }
+  .wide { max-width: 980px; }
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.4em;
+    height: 2px;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  h1 {
+    font-size: clamp(1.9rem, 4vw, 2.6rem);
+    line-height: 1.15;
+    letter-spacing: -0.015em;
+    margin: 0.6em 0 0.4em;
+    text-wrap: balance;
+    font-weight: 750;
+  }
+  .dek {
+    font-size: 1.1rem;
+    color: var(--muted-fg);
+    max-width: 62ch;
+    text-wrap: balance;
+    margin: 0 0 1.6rem;
+  }
+  .meta {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted-fg);
+    display: flex;
+    gap: 1.2em;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+    padding: 0.7em 0;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+    margin: 3.6rem 0 0.3em;
+    text-wrap: balance;
+    font-weight: 700;
+  }
+  h2 .num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 0.65em;
+    font-weight: 600;
+    display: block;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.35em;
+  }
+  h3 {
+    font-size: 1.05rem;
+    margin: 2rem 0 0.5em;
+    font-weight: 700;
+  }
+  p { max-width: 68ch; }
+  .section-intro { color: var(--muted-fg); }
+
+  code, .mono { font-family: var(--font-mono); }
+  p code, li code {
+    background: var(--accent-soft);
+    color: var(--ink);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.86em;
+  }
+
+  .filechip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.25em 0.6em;
+    color: var(--ink);
+  }
+  .filechip::before { content: "⌁"; color: var(--accent); }
+
+  .callout {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 1.1rem 1.3rem;
+    margin: 1.6rem 0;
+    max-width: none;
+  }
+  .callout .label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+    display: block;
+    margin-bottom: 0.4em;
+  }
+  .callout p { margin: 0; max-width: none; }
+
+  /* --- schematic / diagram panels: fixed pale "vellum" backing regardless of theme --- */
+  .panel {
+    background: var(--diagram-paper);
+    color: var(--diagram-ink);
+    border: 1px solid var(--diagram-line);
+    border-radius: 2px;
+    position: relative;
+    margin: 1.8rem 0 2.4rem;
+    padding: 2rem 1.4rem 1.1rem;
+  }
+  .panel::before, .panel::after,
+  .panel .tick-br, .panel .tick-bl {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--accent);
+  }
+  .panel::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .panel::after { top: -1px; right: -1px; border-left: none; border-bottom: none; }
+  .panel .tick-bl { bottom: -1px; left: -1px; border-right: none; border-top: none; }
+  .panel .tick-br { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+  .panel .figcap {
+    position: absolute;
+    top: -0.65em;
+    left: 1.2rem;
+    background: var(--diagram-paper);
+    padding: 0 0.6em;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+  .panel .scroll { overflow-x: auto; }
+  .panel .mermaid { margin: 0 auto; }
+
+  /* --- trace / sequence spine --- */
+  .trace { position: relative; padding-left: 3rem; margin: 2rem 0; }
+  .trace::before {
+    content: "";
+    position: absolute;
+    left: 1.05rem;
+    top: 0.3rem;
+    bottom: 0.3rem;
+    width: 2px;
+    background: var(--line);
+  }
+  .step { position: relative; margin-bottom: 2rem; max-width: none; }
+  .step:last-child { margin-bottom: 0; }
+  .step::before {
+    content: attr(data-step);
+    position: absolute;
+    left: -3rem;
+    top: 0;
+    width: 2.1rem;
+    height: 2.1rem;
+    border-radius: 50%;
+    background: var(--paper-raised);
+    border: 2px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .step h4 {
+    margin: 0.1rem 0 0.3rem;
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .step p { margin: 0.35em 0; color: var(--ink); }
+  .step .refs { display: flex; gap: 0.5em; flex-wrap: wrap; margin-top: 0.5em; }
+  .step pre {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0.7em 0.9em;
+    font-size: 0.8rem;
+    overflow-x: auto;
+    margin: 0.6em 0 0;
+  }
+
+  /* --- glossary --- */
+  .glossary-group { margin-bottom: 2.2rem; }
+  .glossary-group h3 {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-fg);
+    font-weight: 700;
+    margin-bottom: 0.9rem;
+  }
+  dl.terms { margin: 0; display: grid; gap: 1.1rem; }
+  dl.terms > div {
+    display: grid;
+    grid-template-columns: minmax(150px, 190px) 1fr;
+    gap: 1.2rem;
+    align-items: baseline;
+    border-top: 1px solid var(--line);
+    padding-top: 1.1rem;
+  }
+  dl.terms dt {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 0.88rem;
+    color: var(--ink);
+  }
+  dl.terms dd { margin: 0; color: var(--muted-fg); max-width: 56ch; }
+  dl.terms dd strong { color: var(--ink); font-weight: 600; }
+  @media (max-width: 560px) {
+    dl.terms > div { grid-template-columns: 1fr; gap: 0.3rem; }
+  }
+
+  /* --- compare table --- */
+  table.compare {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.4rem 0 2rem;
+    font-size: 0.92rem;
+  }
+  table.compare th, table.compare td {
+    text-align: left;
+    padding: 0.65em 0.8em;
+    border: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.compare th {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: var(--paper-raised);
+    color: var(--muted-fg);
+  }
+
+  .pill {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    padding: 0.15em 0.55em;
+    border-radius: 999px;
+  }
+  .pill.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+  .pill.danger { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); }
+  .pill.warn { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .pill.muted { background: color-mix(in srgb, var(--muted-fg) 18%, transparent); color: var(--muted-fg); }
+
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  footer .row { display: flex; gap: 0.8rem; flex-wrap: wrap; align-items: center; }
+  footer .desc { color: var(--muted-fg); font-size: 0.92rem; margin: 0; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .step, .panel { transition: transform 0.15s ease; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Cơ chế hoạt động · tài liệu kỹ thuật</p>
+  <h1>Từ task BPM đến nút bấm trên Microsoft Teams</h1>
+  <p class="dek">Sơ đồ đường đi đầy đủ của một tín hiệu — kèm giải thích từng thuật ngữ — cho việc: task đến → card xuất hiện trên Teams → user bấm nút → BPM nhận đúng lệnh, y hệt như bấm trên màn hình BPM thật.</p>
+  <div class="meta">
+    <span>repo · <span class="mono">ApproveOnMSTeam</span></span>
+    <span>phạm vi · technical spike, 1 assignee</span>
+    <span>stack · Node.js + TypeScript + Bot Framework SDK</span>
+  </div>
+
+  <h2><span class="num">01</span>Bức tranh tổng thể</h2>
+  <p class="section-intro">Có 4 hệ thống tham gia. Mũi tên nét liền là đường "chính" (task mới → Teams → bấm nút → BPM); mũi tên nét đứt là đường ngược lại khi quyết định được đưa ra ngay trên màn hình BPM.</p>
+
+  <div class="panel wide">
+    <span class="figcap">Hình 1 — kiến trúc tổng thể</span>
+    <span class="tick-bl"></span><span class="tick-br"></span>
+    <div class="scroll">
+      <svg viewBox="0 0 1290 385" width="1290" height="385" style="width:100%;height:auto;display:block;" role="img" aria-label="Sơ đồ kiến trúc: Mock BPM, Bot Server, Microsoft Bot Connector Service, Teams client">
+        <style>
+          .s{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;}
+          .m{font-family:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Consolas,monospace;}
+          .ink{fill:#1b2420;}
+          .accent{fill:#2f6f5e;}
+        </style>
+        <defs>
+          <marker id="arInk" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#1b2420"/>
+          </marker>
+          <marker id="arAccent" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2f6f5e"/>
+          </marker>
+        </defs>
+
+        <!-- group containers -->
+        <rect x="20" y="60" width="250" height="270" rx="12" fill="#f2f5f1" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="35" y="80" class="m accent" font-size="11" letter-spacing="1">MOCK BPM · EXPRESS</text>
+        <rect x="410" y="60" width="250" height="270" rx="12" fill="#f2f5f1" stroke="#2f6f5e" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="425" y="80" class="m accent" font-size="11" letter-spacing="1">BOT SERVER · NODE.JS</text>
+
+        <!-- node boxes -->
+        <rect x="40" y="100" width="210" height="60" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.6"/>
+        <text x="145" y="127" text-anchor="middle" class="m ink" font-size="13" font-weight="700">taskStore</text>
+        <text x="145" y="144" text-anchor="middle" class="s ink" font-size="10.5">(EventEmitter)</text>
+
+        <rect x="40" y="245" width="210" height="60" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.6"/>
+        <text x="145" y="272" text-anchor="middle" class="s ink" font-size="13" font-weight="700">màn hình BPM</text>
+        <text x="145" y="289" text-anchor="middle" class="m ink" font-size="10.5">public/index.html</text>
+
+        <rect x="430" y="100" width="210" height="60" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.6"/>
+        <text x="535" y="135" text-anchor="middle" class="m ink" font-size="13.5" font-weight="700">proactive.ts</text>
+
+        <rect x="430" y="245" width="210" height="60" rx="10" fill="#ffffff" stroke="#2f6f5e" stroke-width="1.6"/>
+        <text x="535" y="272" text-anchor="middle" class="m ink" font-size="13" font-weight="700">activityHandler.ts</text>
+        <text x="535" y="289" text-anchor="middle" class="s ink" font-size="10.5">xử lý Activity đến</text>
+
+        <rect x="760" y="60" width="190" height="270" rx="16" fill="#eef2ee" stroke="#1b2420" stroke-width="1.6"/>
+        <text x="855" y="190" text-anchor="middle" class="s ink" font-size="13.5" font-weight="700">Microsoft</text>
+        <text x="855" y="208" text-anchor="middle" class="s ink" font-size="12">Bot Connector Service</text>
+        <text x="855" y="226" text-anchor="middle" class="s ink" font-size="9.5">(Microsoft vận hành)</text>
+
+        <rect x="1060" y="60" width="190" height="270" rx="16" fill="#eef2ee" stroke="#1b2420" stroke-width="1.6"/>
+        <text x="1155" y="190" text-anchor="middle" class="s ink" font-size="13.5" font-weight="700">Teams client</text>
+        <text x="1155" y="208" text-anchor="middle" class="s ink" font-size="12">của assignee</text>
+        <text x="1155" y="226" text-anchor="middle" class="s ink" font-size="9.5">(app cài trên máy user)</text>
+
+        <!-- lane 1: main forward flow -->
+        <line x1="250" y1="122" x2="430" y2="122" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="340" y="112" text-anchor="middle" class="m ink" font-size="10.5">task:created</text>
+
+        <line x1="640" y1="122" x2="760" y2="122" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="700" y="106" text-anchor="middle" class="s ink" font-size="10">gửi Adaptive Card</text>
+        <text x="700" y="119" text-anchor="middle" class="m ink" font-size="9.5">(App Id + secret)</text>
+
+        <line x1="950" y1="122" x2="1060" y2="122" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="1005" y="112" text-anchor="middle" class="s ink" font-size="10.5">đẩy card</text>
+
+        <!-- lane 1b: reverse trigger from BPM screen (dashed) -->
+        <line x1="250" y1="140" x2="430" y2="140" stroke="#2f6f5e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arAccent)"/>
+        <text x="340" y="157" text-anchor="middle" class="s accent" font-size="9.3">task:updated (nếu quyết định từ BPM)</text>
+
+        <!-- lane 2: return path -->
+        <line x1="1060" y1="275" x2="950" y2="275" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="1005" y="293" text-anchor="middle" class="s ink" font-size="10">bấm nút · Activity</text>
+        <text x="1005" y="306" text-anchor="middle" class="s ink" font-size="10">+ bearer token</text>
+
+        <line x1="760" y1="275" x2="640" y2="275" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="700" y="293" text-anchor="middle" class="m ink" font-size="10">POST /api/messages</text>
+
+        <!-- F: activityHandler.ts -> taskStore, routed above via lane 0 to avoid cutting through proactive.ts -->
+        <path d="M535,245 L535,170 L680,170 L680,30 L145,30 L145,100" fill="none" stroke="#1b2420" stroke-width="1.6" marker-end="url(#arInk)"/>
+        <text x="400" y="21" text-anchor="middle" class="m ink" font-size="10.5">applyAction()</text>
+
+        <!-- G: màn hình BPM -> taskStore, internal to BPM group (dashed) -->
+        <line x1="145" y1="245" x2="145" y2="160" stroke="#2f6f5e" stroke-width="1.6" stroke-dasharray="5 4" marker-end="url(#arAccent)"/>
+        <text x="165" y="206" text-anchor="start" class="m accent" font-size="9.5">POST /bpm/tasks/:id/actions</text>
+
+        <!-- legend -->
+        <line x1="40" y1="352" x2="80" y2="352" stroke="#1b2420" stroke-width="1.6"/>
+        <text x="90" y="356" text-anchor="start" class="s ink" font-size="10.5">luồng chính — task mới → Teams → gọi lại BPM</text>
+        <line x1="40" y1="370" x2="80" y2="370" stroke="#2f6f5e" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="90" y="374" text-anchor="start" class="s accent" font-size="10.5">luồng ngược — quyết định bấm trực tiếp trên màn hình BPM</text>
+      </svg>
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="label">Bất biến cốt lõi</span>
+    <p>Cả nút Teams lẫn nút trên màn hình BPM đều gọi vào <strong>một hàm xử lý nghiệp vụ duy nhất</strong> (<code>taskStore.applyAction</code>, phía sau route <code>POST /bpm/tasks/:id/actions</code>). Không có 2 bộ logic song song — nên 2 giao diện không bao giờ báo trạng thái khác nhau.</p>
+  </div>
+
+  <h2><span class="num">02</span>Thuật ngữ nền tảng</h2>
+  <p class="section-intro">Hiểu 10 khái niệm này trước, phần sơ đồ luồng ở dưới sẽ đọc rất nhanh.</p>
+
+  <div class="glossary-group">
+    <h3>Danh tính &amp; xác thực</h3>
+    <dl class="terms">
+      <div>
+        <dt>Bot Framework / Azure Bot Service</dt>
+        <dd>Lớp trung gian bắt buộc của Microsoft. Không có server nào được tự ý gửi tin vào Teams của 1 user — server phải đăng ký thành "bot" để được cấp danh tính và 1 kênh liên lạc 2 chiều đã được xác thực.</dd>
+      </div>
+      <div>
+        <dt>App Registration <span style="font-weight:400;color:var(--muted-fg)">(Entra ID)</span></dt>
+        <dd>"Chứng minh thư" của bot: <strong>MicrosoftAppId</strong> (như username), <strong>MicrosoftAppPassword</strong> (như password), <strong>MicrosoftAppTenantId</strong> (tổ chức mà bot thuộc về). Được tạo tự động cùng lúc với Azure Bot resource.</dd>
+      </div>
+      <div>
+        <dt>Bearer token</dt>
+        <dd>Chuỗi mã do Microsoft ký, đính kèm mỗi request để chứng minh "request này thật sự đến từ Microsoft" (chiều vào) hoặc "bot này thật sự là bot đã đăng ký" (chiều ra). Server verify chữ ký trước khi tin bất kỳ điều gì trong request.</dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="glossary-group">
+    <h3>Giao tiếp</h3>
+    <dl class="terms">
+      <div>
+        <dt>Messaging endpoint</dt>
+        <dd>1 URL HTTPS cố định (ở đây là <code>/api/messages</code>) mà Microsoft gọi vào mỗi khi có sự kiện liên quan tới bot — user nhắn tin, user bấm nút, user cài đặt app...</dd>
+      </div>
+      <div>
+        <dt>Activity</dt>
+        <dd>Đơn vị dữ liệu chuẩn của Bot Framework — mọi sự kiện đều là 1 Activity JSON, phân biệt bằng <code>type</code>: <code>message</code>, <code>conversationUpdate</code>, <code>invoke</code>...</dd>
+      </div>
+      <div>
+        <dt>Proactive messaging</dt>
+        <dd>Bot <strong>chủ động</strong> gửi tin — không phải để trả lời 1 Activity vừa nhận. Đây chính là cơ chế cho phép "task đến → tin nhắn tự xuất hiện" mà user không cần hỏi trước.</dd>
+      </div>
+      <div>
+        <dt>Conversation reference</dt>
+        <dd>"Địa chỉ" của 1 cuộc hội thoại 1:1 giữa bot và user (conversation id, service URL...). Chỉ có được <em>sau khi</em> user đã tương tác với bot ít nhất 1 lần — vì vậy user luôn phải nhắn bot 1 câu trước khi nhận được thông báo chủ động đầu tiên.</dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="glossary-group">
+    <h3>Giao diện</h3>
+    <dl class="terms">
+      <div>
+        <dt>Adaptive Card</dt>
+        <dd>Chuẩn JSON mô tả 1 thẻ tương tác (text, nút...) mà Teams biết render thành UI. Bot không gửi HTML — gửi JSON theo schema này.</dd>
+      </div>
+      <div>
+        <dt>Action.Submit <span style="font-weight:400;color:var(--muted-fg)">vs</span> Action.Execute</dt>
+        <dd>2 kiểu nút trên Adaptive Card — xem bảng so sánh ở mục 04. Dự án này dùng <code>Action.Submit</code> vì đơn giản hơn.</dd>
+      </div>
+    </dl>
+  </div>
+
+  <div class="glossary-group">
+    <h3>Triển khai &amp; dev</h3>
+    <dl class="terms">
+      <div>
+        <dt>Teams App Manifest / Sideloading</dt>
+        <dd>Teams không cho bot "tự nhảy vào" chat — user phải cài app trước, giống cài app điện thoại. Manifest là tờ khai mô tả app đó; sideload là cách cài thủ công 1 app chưa public, dùng khi dev/test.</dd>
+      </div>
+      <div>
+        <dt>Tunnel <span style="font-weight:400;color:var(--muted-fg)">(ngrok)</span></dt>
+        <dd>Microsoft không gọi được vào <code>localhost</code> của máy dev. Tunnel mở 1 địa chỉ HTTPS công khai chuyển tiếp request vào đúng cổng local — chỉ dùng cho dev, production dùng địa chỉ thật.</dd>
+      </div>
+    </dl>
+  </div>
+
+  <h2><span class="num">03</span>Luồng chính — bấm nút trên Teams</h2>
+  <p class="section-intro">Theo dõi cùng 1 tín hiệu qua toàn bộ hệ thống, từ lúc task được tạo tới lúc card trên Teams đổi trạng thái.</p>
+
+  <div class="panel wide">
+    <span class="figcap">Hình 2 — sequence: Bước A → G</span>
+    <span class="tick-bl"></span><span class="tick-br"></span>
+    <div class="scroll">
+<pre class="mermaid">
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ffffff','primaryBorderColor':'#2f6f5e','primaryTextColor':'#1b2420','lineColor':'#1b2420','actorBkg':'#f2f5f1','actorBorder':'#2f6f5e','actorTextColor':'#1b2420','signalColor':'#1b2420','signalTextColor':'#1b2420','noteBkgColor':'#eef2ee','noteBorderColor':'#2f6f5e','fontFamily':'ui-monospace, SFMono-Regular, Menlo, monospace','fontSize':'12px'}}}%%
+sequenceDiagram
+  actor User as User (Teams)
+  participant Teams as Teams client
+  participant MSFT as Bot Connector Service
+  participant Bot as Bot server (/api/messages)
+  participant Store as taskStore (BPM)
+
+  Note over Store: Bước A — POST /bpm/tasks
+  Store->>Store: create() → emit "task:created"
+  Note over Bot: Bước B/C — sendApprovalCard()
+  Bot->>MSFT: continueConversationAsync()<br/>App Id/secret → xin access token
+  MSFT->>Teams: đẩy Adaptive Card
+  Teams-->>User: card + 3 nút hiển thị
+  Note over User: Bước D — bấm "Đồng ý"
+  User->>Teams: click Action.Submit
+  Teams->>MSFT: Activity { value:{action,taskId} }
+  MSFT->>Bot: POST /api/messages (kèm Bearer token)
+  Note over Bot: Bước E — CloudAdapter verify token
+  Bot->>Store: Bước F — applyAction(taskId,"approve","MS_TEAMS")
+  Store-->>Bot: task → APPROVED
+  Bot->>MSFT: Bước G — updateActivity(replyToId, resultCard)
+  MSFT->>Teams: sửa card tại chỗ
+  Teams-->>User: hết nút, hiện "Đã đồng ý"
+</pre>
+    </div>
+  </div>
+
+  <div class="trace">
+    <div class="step" data-step="A">
+      <h4>Task được tạo trong BPM</h4>
+      <p><code>POST /bpm/tasks</code> gọi <code>taskStore.create(...)</code>, tạo object task và phát sự kiện nội bộ <code>task:created</code> — thuần cơ chế <code>EventEmitter</code> của Node, chưa liên quan gì tới Teams.</p>
+      <div class="refs"><span class="filechip">src/bpm/routes.ts:9-16</span><span class="filechip">src/bpm/store.ts:33-46</span></div>
+    </div>
+    <div class="step" data-step="B">
+      <h4>Server "nghe" sự kiện, gọi bot gửi card</h4>
+      <p>Đây là điểm nối duy nhất giữa thế giới BPM và thế giới Teams — 1 dòng <code>taskStore.events.on(...)</code>.</p>
+      <div class="refs"><span class="filechip">src/server.ts:25-27</span></div>
+    </div>
+    <div class="step" data-step="C">
+      <h4>Gửi Adaptive Card chủ động (proactive)</h4>
+      <p>Tra <code>conversationStore</code> lấy địa chỉ hội thoại đã lưu; nếu chưa có thì dừng và log cảnh báo. Nếu có, gọi <code>adapter.continueConversationAsync()</code> — SDK tự xin access token bằng App Id/secret rồi gọi Bot Connector Service. Activity ID trả về được lưu lại để có thể "sửa" tin nhắn này sau này.</p>
+      <div class="refs"><span class="filechip">src/bot/proactive.ts</span></div>
+    </div>
+    <div class="step" data-step="D">
+      <h4>User bấm nút trên Teams</h4>
+      <p>Teams gửi 1 HTTP POST tới messaging endpoint, Activity <code>type: message</code>, <code>value = { action: "approve", taskId: "..." }</code> vì dùng <code>Action.Submit</code>, kèm <code>replyToId</code> = ID của card gốc.</p>
+    </div>
+    <div class="step" data-step="E">
+      <h4>CloudAdapter xác thực + phân phối</h4>
+      <p><code>adapter.process()</code> verify bearer token, dựng <code>TurnContext</code>, rồi gọi <code>bot.run(context)</code> — <code>ApprovalBot</code> tự route theo loại Activity.</p>
+      <div class="refs"><span class="filechip">src/server.ts:19-21</span></div>
+    </div>
+    <div class="step" data-step="F">
+      <h4>Gọi lại đúng logic BPM</h4>
+      <p><code>onMessage</code> đọc <code>value</code>, gọi <code>taskStore.applyAction(taskId, action, actor, "MS_TEAMS")</code> — <strong>cùng hàm</strong> mà route BPM dùng, không có logic riêng cho Teams.</p>
+      <div class="refs"><span class="filechip">src/bot/activityHandler.ts:30-64</span></div>
+      <pre>taskStore.applyAction(taskId, action as TaskAction, actor, "MS_TEAMS");</pre>
+    </div>
+    <div class="step" data-step="G">
+      <h4>Sửa lại card, khoá nút</h4>
+      <p><code>context.updateActivity({ id: context.activity.replyToId, ... })</code> — sửa đúng tin nhắn gốc nhờ <code>replyToId</code> mà Teams tự đính kèm, không cần tự lưu gì thêm ở bước này.</p>
+      <div class="refs"><span class="filechip">src/bot/activityHandler.ts:71-78</span></div>
+    </div>
+  </div>
+
+  <h2><span class="num">04</span>Luồng ngược — bấm trên màn hình BPM</h2>
+  <p class="section-intro">Phần này không bắt buộc theo yêu cầu ban đầu, nhưng cần có để chứng minh 2 giao diện luôn khớp nhau: quyết định đưa ra trên màn hình BPM cũng tự động sửa lại card trên Teams, không cần user vào Teams làm gì.</p>
+
+  <div class="panel wide">
+    <span class="figcap">Hình 3 — sequence: Bước H</span>
+    <span class="tick-bl"></span><span class="tick-br"></span>
+    <div class="scroll">
+<pre class="mermaid">
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ffffff','primaryBorderColor':'#2f6f5e','primaryTextColor':'#1b2420','lineColor':'#1b2420','actorBkg':'#f2f5f1','actorBorder':'#2f6f5e','actorTextColor':'#1b2420','signalColor':'#1b2420','signalTextColor':'#1b2420','noteBkgColor':'#eef2ee','noteBorderColor':'#2f6f5e','fontFamily':'ui-monospace, SFMono-Regular, Menlo, monospace','fontSize':'12px'}}}%%
+sequenceDiagram
+  actor Op as BPM operator
+  participant Screen as public/index.html
+  participant Store as taskStore
+  participant Bot as proactive.ts
+  participant MSFT as Bot Connector Service
+  participant Teams as Teams client
+
+  Op->>Screen: bấm "Đồng ý" trên màn hình BPM
+  Screen->>Store: POST /bpm/tasks/:id/actions (source=BPM_SCREEN)
+  Store-->>Store: applyAction() → emit "task:updated"
+  Store->>Bot: decidedVia === "BPM_SCREEN"
+  Bot->>Bot: tra cardActivityStore → activityId đã lưu ở Bước C
+  Bot->>MSFT: continueConversationAsync() + updateActivity()
+  MSFT->>Teams: sửa lại đúng card cũ
+  Note over Teams: card tự cập nhật, user không cần thao tác gì
+</pre>
+    </div>
+  </div>
+  <p><span class="filechip">src/bot/proactive.ts → updateCardFromBpmScreen()</span> &nbsp; <span class="filechip">src/server.ts:32-35</span></p>
+
+  <h2><span class="num">05</span>Sơ đồ niềm tin — vì sao phải "đăng ký" bot</h2>
+  <p class="section-intro">Không có App Registration, không bên nào trong hệ thống biết tin ai: Microsoft không biết gửi Activity vào đâu, và server không có cách nào xác nhận request <code>/api/messages</code> thật sự đến từ Microsoft chứ không phải giả mạo.</p>
+
+  <div class="panel wide">
+    <span class="figcap">Hình 4 — trao đổi token 2 chiều</span>
+    <span class="tick-bl"></span><span class="tick-br"></span>
+    <div class="scroll">
+<pre class="mermaid">
+%%{init: {'theme':'base', 'themeVariables': {'primaryColor':'#ffffff','primaryBorderColor':'#2f6f5e','primaryTextColor':'#1b2420','lineColor':'#1b2420','actorBkg':'#f2f5f1','actorBorder':'#2f6f5e','actorTextColor':'#1b2420','signalColor':'#1b2420','signalTextColor':'#1b2420','noteBkgColor':'#eef2ee','noteBorderColor':'#2f6f5e','fontFamily':'ui-monospace, SFMono-Regular, Menlo, monospace','fontSize':'12px'}}}%%
+sequenceDiagram
+  participant Bot as Bot server
+  participant AAD as Microsoft Entra ID
+  participant Conn as Bot Connector Service
+  participant Teams as Teams
+
+  Note over Bot,AAD: Chiều RA — bot chủ động gửi tin
+  Bot->>AAD: MicrosoftAppId + MicrosoftAppPassword
+  AAD-->>Bot: access token (OAuth)
+  Bot->>Conn: gửi/sửa Activity + token
+  Conn->>Teams: đẩy vào đúng cuộc hội thoại
+
+  Note over Teams,Bot: Chiều VÀO — Teams gọi lại bot
+  Teams->>Conn: user tương tác (bấm nút, nhắn tin)
+  Conn->>Bot: POST /api/messages + Bearer token (Conn tự ký)
+  Bot->>Bot: CloudAdapter verify token —<br/>đúng issuer, đúng audience = AppId
+  Bot-->>Conn: 200 OK
+</pre>
+    </div>
+  </div>
+
+  <h2><span class="num">06</span>Điểm dễ nhầm: Action.Submit vs Action.Execute</h2>
+  <table class="compare">
+    <thead>
+      <tr><th></th><th>Action.Submit <span class="pill ok">đang dùng</span></th><th>Action.Execute</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Activity khi bấm</strong></td>
+        <td><code>type: message</code>, dữ liệu nằm ở <code>activity.value</code></td>
+        <td><code>type: invoke</code>, <code>name: adaptiveCard/action</code></td>
+      </tr>
+      <tr>
+        <td><strong>Độ phức tạp xử lý</strong></td>
+        <td>Thấp — chỉ cần đọc <code>onMessage</code></td>
+        <td>Cao hơn — cần handler riêng cho Invoke Activity</td>
+      </tr>
+      <tr>
+        <td><strong>Đổi card ngay trong 1 round-trip</strong></td>
+        <td>Không — phải gọi <code>updateActivity</code> riêng sau đó</td>
+        <td>Có — bot trả card mới ngay trong response của invoke</td>
+      </tr>
+      <tr>
+        <td><strong>Lý do chọn cho spike này</strong></td>
+        <td colspan="2">Đơn giản, dễ debug, đủ để chứng minh khả thi kỹ thuật — xem <code>src/bot/cards.ts:6-47</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <p class="desc">Tài liệu hướng dẫn cài đặt (tenant sandbox, Azure Bot, sideload) và checklist khi triển khai vào tenant CMC thật nằm ở:</p>
+    <div class="row">
+      <span class="filechip">README.md</span>
+      <span class="filechip">PRODUCTION-CHECKLIST.md</span>
+    </div>
+  </footer>
+
+</div>

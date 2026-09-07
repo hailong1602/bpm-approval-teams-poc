@@ -1,0 +1,525 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<title>Mock BPM Screen</title>
+<style>
+  :root {
+    --bg: #eef1f5;
+    --card: #ffffff;
+    --border: #dde1e7;
+    --text: #182230;
+    --text-muted: #5b6472;
+    --brand: #0b3d66;
+    --brand-dark: #082c4a;
+    --primary: var(--brand);
+    --primary-hover: var(--brand-dark);
+    --green: #1f7a3f;
+    --green-bg: #e6f4ea;
+    --amber: #92720a;
+    --amber-bg: #fdf3d9;
+    --red: #b3261e;
+    --red-bg: #fbeaea;
+    --gray-bg: #eef0f2;
+    --radius: 8px;
+    --shadow: 0 1px 2px rgba(16,24,40,.04), 0 1px 3px rgba(16,24,40,.06);
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", -apple-system, Arial, sans-serif;
+    margin: 0;
+    padding: 0 0 3rem;
+    background: var(--bg);
+    color: var(--text);
+  }
+  .topbar { background: var(--brand); color: #fff; padding: 0.9rem 1.25rem; }
+  .topbar-inner { max-width: 880px; margin: 0 auto; display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+  .topbar-title { font-size: 1.02rem; font-weight: 700; letter-spacing: .01em; }
+  .topbar-tag { font-size: 0.7rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+  .page { max-width: 880px; margin: 0 auto; padding: 1.75rem 1.25rem 0; }
+
+  header.hero { margin-bottom: 1.5rem; }
+  h1 { font-size: 1.25rem; margin: 0 0 0.35rem; font-weight: 700; }
+  p.sub { color: var(--text-muted); margin: 0; font-size: 0.87rem; line-height: 1.5; max-width: 640px; }
+  p.sub strong { color: var(--text); }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  form.new-task { padding: 1.25rem 1.4rem 1.4rem; margin: 1.5rem 0; }
+  form.new-task h2 { font-size: 0.95rem; margin: 0 0 1rem; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-top: 0.7rem; }
+  .field label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
+  .field label .opt { font-weight: 400; color: #9aa1ab; }
+  form.new-task input,
+  form.new-task textarea {
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    font-family: inherit;
+    font-size: 0.87rem;
+    width: 100%;
+    background: #fff;
+    color: var(--text);
+  }
+  form.new-task input:focus,
+  form.new-task textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
+  form.new-task textarea { resize: vertical; line-height: 1.5; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.1rem; }
+  button {
+    padding: 8px 16px; border-radius: 7px; border: 1px solid var(--border);
+    background: #fff; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    transition: filter .12s, background .12s;
+  }
+  button:hover:not(:disabled) { filter: brightness(0.97); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  button.primary:hover:not(:disabled) { background: var(--primary-hover); }
+  button.ghost-accent { border-color: var(--border); color: var(--text-muted); background: #fafbfc; }
+  button.ghost-accent:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); background: #fff; }
+  button.approve { border-color: var(--green); color: var(--green); }
+  button.approve:hover:not(:disabled) { background: var(--green-bg); }
+  button.reject { border-color: var(--red); color: var(--red); }
+  button.reject:hover:not(:disabled) { background: var(--red-bg); }
+  button.cancel { border-color: #6b7280; color: #4b5563; }
+  button.cancel:hover:not(:disabled) { background: var(--gray-bg); }
+
+  .list-header { display: flex; align-items: baseline; justify-content: space-between; margin: 1.6rem 0 0.7rem; }
+  .list-header h2 { font-size: 1rem; margin: 0; }
+  .list-header .count { font-size: 0.8rem; color: var(--text-muted); }
+
+  .task-list { display: flex; flex-direction: column; gap: 0.6rem; }
+  .task-card { padding: 1rem 1.15rem; }
+  .task-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; }
+  .task-title { font-weight: 600; font-size: 0.95rem; margin: 0 0 3px; }
+  .task-meta { font-size: 0.78rem; color: var(--text-muted); display: flex; flex-wrap: wrap; gap: 4px 10px; }
+  .task-meta a { color: var(--primary); text-decoration: none; }
+  .task-meta a:hover { text-decoration: underline; }
+
+  .status { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 0.72rem; font-weight: 700; white-space: nowrap; }
+  .status.PENDING { background: var(--amber-bg); color: var(--amber); }
+  .status.APPROVED { background: var(--green-bg); color: var(--green); }
+  .status.REJECTED { background: var(--red-bg); color: var(--red); }
+  .status.CANCELLED { background: var(--gray-bg); color: #555; }
+  .via { font-size: 0.72rem; color: #9aa1ab; margin-top: 2px; }
+
+  .task-actions { display: flex; gap: 6px; margin-top: 0.8rem; }
+
+  details.history { margin-top: 0.7rem; }
+  details.history summary { font-size: 0.76rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+  details.history summary:hover { color: var(--text); }
+  ul.history-list { font-size: 0.76rem; color: var(--text-muted); margin: 0.4rem 0 0; padding-left: 1.1rem; }
+  ul.history-list li { margin-bottom: 2px; }
+
+  .empty { padding: 2.2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
+
+  .items-container { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+  .item-row { display: flex; gap: 6px; align-items: center; }
+  .item-row .item-name { flex: 1; }
+  .item-row .item-amount { width: 150px; flex-shrink: 0; }
+  .item-row .remove-item {
+    flex-shrink: 0; width: 32px; height: 32px; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 7px; border: 1px solid var(--border); background: #fff; color: #9aa1ab; font-size: 0.8rem;
+  }
+  .item-row .remove-item:hover { background: var(--red-bg); border-color: var(--red); color: var(--red); }
+  .add-item-btn {
+    padding: 6px 12px; font-size: 0.8rem; font-weight: 600;
+    border: 1px dashed var(--border); border-radius: 7px; background: #fafbfc; color: var(--text-muted);
+    cursor: pointer;
+  }
+  .add-item-btn:hover { border-color: var(--primary); color: var(--primary); background: #f5f5ff; }
+
+  @media (max-width: 560px) {
+    .field-row { grid-template-columns: 1fr; }
+    .item-row { flex-wrap: wrap; }
+    .item-row .item-amount { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="topbar-inner">
+    <span class="topbar-title">BPM Approval System</span>
+    <span class="topbar-tag">Technical Spike &middot; Mock BPM</span>
+  </div>
+</div>
+<div class="page">
+
+  <header class="hero">
+    <h1>Màn hình xử lý phê duyệt</h1>
+    <p class="sub">Task được duyệt / từ chối / huỷ từ đây <strong>hoặc</strong> từ nút bấm trên Microsoft Teams đều đi qua một action endpoint duy nhất, nên trạng thái luôn khớp nhau.</p>
+  </header>
+
+  <form class="new-task card" id="newTaskForm">
+    <h2>Tạo task mới (giả lập &quot;task đến&quot;)</h2>
+    <div class="field-row">
+      <div class="field">
+        <label for="titleInput">Tiêu đề yêu cầu</label>
+        <input id="titleInput" name="title" placeholder="Tiêu đề yêu cầu" value="Đề nghị chi tạm ứng 5,000,000 VND" required />
+      </div>
+      <div class="field">
+        <label for="requesterInput">Người đề nghị</label>
+        <input id="requesterInput" name="requester" placeholder="Người đề nghị" value="Nguyễn Văn A" required />
+      </div>
+    </div>
+    <div class="field">
+      <label for="assigneeInput">Email người duyệt (assignee) <span class="opt">— để trống dùng mặc định</span></label>
+      <input id="assigneeInput" name="assigneeEmail" type="email" placeholder="approver@cmctssg.space" />
+    </div>
+    <div class="field">
+      <label for="reasonInput">Lý do đề nghị</label>
+      <textarea id="reasonInput" name="reason" rows="2" placeholder="Lý do đề nghị..." required>Bổ sung chi phí công tác quý 3 cho đoàn khảo sát chi nhánh Cần Thơ. Đã có xác nhận sơ bộ từ Trưởng phòng Kế hoạch.</textarea>
+    </div>
+    <div class="field">
+      <label>Hạng mục chi phí <span class="opt">— tuỳ chọn, thêm được nhiều dòng</span></label>
+      <div class="items-container" id="itemsContainer"></div>
+      <button type="button" id="addItemBtn" class="add-item-btn">+ Thêm hạng mục</button>
+    </div>
+    <div class="field">
+      <label for="deadlineInput">Hạn xử lý mong muốn <span class="opt">— tuỳ chọn</span></label>
+      <input id="deadlineInput" name="deadline" placeholder="vd: trước 10/08 để kịp lịch công tác" value="trước 10/08 để kịp lịch công tác" />
+    </div>
+    <div class="btn-row">
+      <button type="submit" class="primary">Tạo task mới</button>
+      <button type="button" id="genTestBtn" class="ghost-accent">Tạo dữ liệu test ngẫu nhiên</button>
+    </div>
+  </form>
+
+  <div class="list-header">
+    <h2>Danh sách task</h2>
+    <span class="count" id="taskCount"></span>
+  </div>
+  <div class="task-list" id="taskList"></div>
+
+</div>
+
+<script>
+// Phải khớp BPM_API_KEY trong .env — chỉ chặn truy cập ngẫu nhiên qua tunnel
+// công khai (Power Automate), KHÔNG phải xác thực thật (giá trị lộ ra trong
+// mã nguồn trang này). Xem docs/power-automate-flows.md.
+const API_KEY = 'cfyQMVKyX2-5O5dEIV8TOgxx3T8ksaTB';
+
+async function fetchTasks() {
+  const res = await fetch('/bpm/tasks');
+  const tasks = await res.json();
+  render(tasks);
+}
+
+function render(tasks) {
+  const list = document.getElementById('taskList');
+  document.getElementById('taskCount').textContent = tasks.length ? `${tasks.length} task` : '';
+
+  if (!tasks.length) {
+    list.innerHTML = '<div class="card empty">Chưa có task nào. Tạo 1 task ở form phía trên để bắt đầu.</div>';
+    return;
+  }
+
+  list.innerHTML = tasks.map(t => `
+    <div class="task-card card">
+      <div class="task-top">
+        <div>
+          <div class="task-title">${escapeHtml(t.title)}</div>
+          <div class="task-meta">
+            <span>#${t.id.slice(0,8)}</span>
+            <span>từ ${escapeHtml(t.requester)}</span>
+            <span>→ ${escapeHtml(t.assigneeEmail)}</span>
+            ${t.emailFile ? `<a href="/bpm/tasks/${t.id}/email" target="_blank">Xem email gốc (.eml)</a>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <span class="status ${t.status}">${t.status}</span>
+          ${t.decidedVia ? `<div class="via">via ${t.decidedVia}</div>` : ''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="approve" ${t.status !== 'PENDING' ? 'disabled' : ''} onclick="act('${t.id}','approve')">Đồng ý</button>
+        <button class="reject" ${t.status !== 'PENDING' ? 'disabled' : ''} onclick="act('${t.id}','reject')">Từ chối</button>
+        <button class="cancel" ${t.status !== 'PENDING' ? 'disabled' : ''} onclick="act('${t.id}','cancel')">Huỷ</button>
+      </div>
+      <details class="history">
+        <summary>Lịch sử (${t.history.length})</summary>
+        <ul class="history-list">${t.history.map(h => `<li>${new Date(h.at).toLocaleTimeString('vi-VN')} — ${escapeHtml(h.event)}</li>`).join('')}</ul>
+      </details>
+    </div>
+  `).join('');
+}
+
+async function act(id, action) {
+  await fetch(`/bpm/tasks/${id}/actions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+    body: JSON.stringify({ action, actor: 'BPM Operator (màn hình BPM)', source: 'BPM_SCREEN' }),
+  });
+  fetchTasks();
+}
+
+// --- Sinh dữ liệu test ngẫu nhiên, đa dạng chủ đề (tài chính, nhân sự, mua sắm, CNTT, tín dụng...) ---
+const NAMES = ['Nguyễn Văn An', 'Trần Thị Bích', 'Lê Minh Châu', 'Phạm Thị Dung', 'Hoàng Văn Em',
+  'Vũ Thị Giang', 'Đặng Minh Hải', 'Bùi Thị Kim', 'Ngô Văn Long', 'Đỗ Thị Mai',
+  'Phan Văn Nam', 'Trịnh Thị Oanh', 'Lý Văn Phúc', 'Dương Thị Quyên', 'Tô Văn Sơn'];
+const DEPARTMENTS = ['Phòng Kế hoạch', 'Phòng Kinh doanh', 'Phòng CNTT', 'Phòng Nhân sự',
+  'Phòng Tài chính - Kế toán', 'Chi nhánh Cần Thơ', 'Chi nhánh Đà Nẵng', 'Chi nhánh Hải Phòng',
+  'Phòng Quản trị rủi ro', 'Phòng Marketing'];
+const APPROVER_TITLES = ['Trưởng phòng Kế hoạch', 'Giám đốc chi nhánh', 'Trưởng phòng Nhân sự',
+  'Giám đốc khối Vận hành', 'Trưởng phòng Tài chính'];
+const POSITIONS = ['Chuyên viên', 'Chuyên viên chính', 'Trưởng nhóm', 'Phó phòng', 'Trưởng phòng'];
+const VENDORS = ['Công ty TNHH Thiết bị Văn phòng Thành Đạt', 'Công ty CP Giải pháp CNTT Sao Việt',
+  'Công ty TNHH Vận tải Minh Phát', 'Công ty CP Dịch vụ Bảo vệ An Toàn'];
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function money(min, max, step = 500000) {
+  return (Math.round(randInt(min, max) / step) * step).toLocaleString('vi-VN') + 'đ';
+}
+function futureDate(maxDays) {
+  const d = new Date();
+  d.setDate(d.getDate() + randInt(3, maxDays));
+  return d.toLocaleDateString('vi-VN');
+}
+
+const TEST_TEMPLATES = [
+  () => {
+    const people = randInt(2, 6);
+    const dept = pick(DEPARTMENTS);
+    return {
+      title: `Đề nghị cấp chi phí công tác — ${dept}`,
+      requester: pick(NAMES),
+      detail: `Lý do đề nghị: bổ sung chi phí công tác cho đoàn khảo sát ${dept}.\n\n` +
+        `Hạng mục:\n` +
+        `- Vé máy bay khứ hồi (${people} người): ${money(2000000 * people, 4000000 * people)}\n` +
+        `- Khách sạn ${randInt(2, 5)} đêm: ${money(3000000, 8000000)}\n` +
+        `- Phụ cấp công tác: ${money(2000000, 5000000)}\n\n` +
+        `Đã có xác nhận sơ bộ từ ${pick(APPROVER_TITLES)}.\n` +
+        `Hạn xử lý mong muốn: trước ${futureDate(14)} để kịp lịch công tác.`,
+    };
+  },
+  () => {
+    const amount = money(3000000, 20000000);
+    return {
+      title: `Đề nghị tạm ứng chi phí — ${amount}`,
+      requester: pick(NAMES),
+      detail: `Lý do đề nghị: tạm ứng để xử lý các chi phí phát sinh trong tháng.\n\n` +
+        `Số tiền đề nghị: ${amount}\n` +
+        `Mục đích sử dụng: chi phí hoạt động thường xuyên của ${pick(DEPARTMENTS)}.\n` +
+        `Thời hạn hoàn ứng dự kiến: ${futureDate(30)}.\n\n` +
+        `Người quản lý trực tiếp đã đồng ý về mặt nguyên tắc: ${pick(APPROVER_TITLES)}.`,
+    };
+  },
+  () => {
+    const vendor = pick(VENDORS);
+    const amount = money(10000000, 80000000);
+    return {
+      title: `Đề nghị thanh toán hoá đơn nhà cung cấp — ${vendor}`,
+      requester: pick(NAMES),
+      detail: `Nhà cung cấp: ${vendor}\n` +
+        `Nội dung: thanh toán theo hợp đồng/hoá đơn đã nghiệm thu.\n` +
+        `Số tiền: ${amount}\n` +
+        `Hạn thanh toán theo hợp đồng: ${futureDate(10)}.\n\n` +
+        `Hồ sơ đính kèm (bản giấy): hợp đồng, biên bản nghiệm thu, hoá đơn GTGT.\n` +
+        `Đề nghị: ${pick(APPROVER_TITLES)} phê duyệt để chuyển Phòng Tài chính - Kế toán xử lý.`,
+    };
+  },
+  () => {
+    const items = pick(['20 laptop Dell Latitude', '15 màn hình LG 24"', '30 bộ bàn phím - chuột không dây', '10 máy in HP LaserJet']);
+    return {
+      title: `Đề nghị mua sắm thiết bị CNTT — ${items}`,
+      requester: pick(NAMES),
+      detail: `Đơn vị đề nghị: Phòng CNTT\n` +
+        `Hạng mục: ${items}\n` +
+        `Lý do: thay thế thiết bị cũ/trang bị mới cho nhân sự tuyển dụng quý này.\n` +
+        `Giá trị ước tính: ${money(50000000, 300000000)}\n` +
+        `Nhà cung cấp đề xuất: ${pick(VENDORS)}\n` +
+        `Thời gian cần hoàn tất: trước ${futureDate(21)}.`,
+    };
+  },
+  () => {
+    const name = pick(NAMES);
+    const from = pick(POSITIONS);
+    const to = POSITIONS[Math.min(POSITIONS.indexOf(from) + 1, POSITIONS.length - 1)];
+    return {
+      title: `Đề nghị thăng tiến nhân sự — ${name}`,
+      requester: pick(APPROVER_TITLES),
+      detail: `Nhân sự đề nghị: ${name}\n` +
+        `Đơn vị: ${pick(DEPARTMENTS)}\n` +
+        `Chức danh hiện tại: ${from}\n` +
+        `Chức danh đề nghị: ${to}\n\n` +
+        `Lý do: hoàn thành xuất sắc KPI ${randInt(2, 4)} quý liên tiếp, đủ điều kiện thâm niên và năng lực theo quy chế.\n` +
+        `Hiệu lực đề nghị từ: ${futureDate(30)}.\n` +
+        `Đã có ý kiến đồng thuận của quản lý trực tiếp và Phòng Nhân sự.`,
+    };
+  },
+  () => {
+    const name = pick(NAMES);
+    return {
+      title: `Đề nghị chấp thuận nghỉ việc — ${name}`,
+      requester: pick(NAMES),
+      detail: `Nhân sự đề nghị nghỉ việc: ${name}\n` +
+        `Đơn vị: ${pick(DEPARTMENTS)}\n` +
+        `Ngày nộp đơn: ${new Date().toLocaleDateString('vi-VN')}\n` +
+        `Ngày nghỉ việc dự kiến: ${futureDate(45)} (theo đúng thời hạn báo trước ${randInt(30, 45)} ngày).\n\n` +
+        `Lý do: nguyện vọng cá nhân.\n` +
+        `Tình trạng bàn giao công việc: đang thực hiện, dự kiến hoàn tất trước ngày nghỉ việc chính thức.\n` +
+        `Đề nghị Phòng Nhân sự và quản lý trực tiếp xác nhận để hoàn tất thủ tục.`,
+    };
+  },
+  () => {
+    const name = pick(NAMES);
+    const days = randInt(5, 20);
+    return {
+      title: `Đề nghị nghỉ phép dài hạn — ${name} (${days} ngày)`,
+      requester: name,
+      detail: `Số ngày nghỉ đề nghị: ${days} ngày\n` +
+        `Từ ngày: ${futureDate(14)}\n` +
+        `Lý do: việc gia đình / khám chữa bệnh.\n` +
+        `Người bàn giao công việc trong thời gian nghỉ: ${pick(NAMES)}.\n\n` +
+        `Đã trao đổi và được quản lý trực tiếp đồng ý về nguyên tắc, cần Phòng Nhân sự phê duyệt chính thức.`,
+    };
+  },
+  () => {
+    const dept = pick(DEPARTMENTS);
+    const count = randInt(1, 3);
+    return {
+      title: `Đề nghị tuyển dụng nhân sự mới — ${dept}`,
+      requester: pick(APPROVER_TITLES),
+      detail: `Đơn vị đề nghị: ${dept}\n` +
+        `Số lượng cần tuyển: ${count} người\n` +
+        `Vị trí: ${pick(POSITIONS)}\n` +
+        `Lý do: bổ sung nhân sự thay thế nghỉ việc / mở rộng quy mô hoạt động.\n` +
+        `Mức lương đề xuất: ${money(12000000, 35000000)}/tháng.\n` +
+        `Thời gian cần có nhân sự: trước ${futureDate(60)}.`,
+    };
+  },
+  () => {
+    const client = pick(['khách hàng doanh nghiệp ABC', 'khách hàng cá nhân VIP', 'đối tác chiến lược XYZ']);
+    return {
+      title: `Đề nghị phê duyệt hạn mức tín dụng — ${client}`,
+      requester: pick(NAMES),
+      detail: `Đối tượng: ${client}\n` +
+        `Hạn mức đề nghị: ${money(500000000, 5000000000, 100000000)}\n` +
+        `Mục đích sử dụng vốn: bổ sung vốn lưu động / mở rộng kinh doanh.\n` +
+        `Kết quả thẩm định sơ bộ: đủ điều kiện theo quy định hiện hành của quy chế cấp tín dụng.\n\n` +
+        `Đề nghị ${pick(APPROVER_TITLES)} phê duyệt để chuyển bước ký hợp đồng tín dụng.`,
+    };
+  },
+  () => {
+    const vendor = pick(VENDORS);
+    return {
+      title: `Đề nghị ký hợp đồng dịch vụ — ${vendor}`,
+      requester: pick(NAMES),
+      detail: `Nhà cung cấp: ${vendor}\n` +
+        `Loại dịch vụ: bảo trì hệ thống / vận chuyển / bảo vệ (theo hồ sơ đính kèm).\n` +
+        `Thời hạn hợp đồng: ${randInt(1, 3)} năm.\n` +
+        `Giá trị hợp đồng: ${money(50000000, 500000000)}\n\n` +
+        `Đã hoàn tất quy trình chào giá cạnh tranh, đề nghị ${pick(APPROVER_TITLES)} phê duyệt trước khi ký chính thức.`,
+    };
+  },
+  () => {
+    const dept = pick(DEPARTMENTS);
+    return {
+      title: `Đề nghị cử nhân sự đi đào tạo — ${dept}`,
+      requester: pick(NAMES),
+      detail: `Đơn vị: ${dept}\n` +
+        `Số nhân sự tham gia: ${randInt(1, 5)} người\n` +
+        `Khoá đào tạo: nghiệp vụ chuyên môn / chứng chỉ quốc tế.\n` +
+        `Chi phí đào tạo: ${money(5000000, 40000000)}\n` +
+        `Thời gian đào tạo: từ ${futureDate(20)}, kéo dài ${randInt(2, 10)} ngày.\n\n` +
+        `Cam kết sau đào tạo: áp dụng vào công việc, chia sẻ lại kiến thức cho đội ngũ.`,
+    };
+  },
+  () => {
+    const name = pick(NAMES);
+    return {
+      title: `Đề nghị khen thưởng — ${name}`,
+      requester: pick(APPROVER_TITLES),
+      detail: `Nhân sự được đề nghị khen thưởng: ${name}\n` +
+        `Đơn vị: ${pick(DEPARTMENTS)}\n` +
+        `Thành tích: hoàn thành xuất sắc nhiệm vụ được giao trong quý, có sáng kiến cải tiến quy trình.\n` +
+        `Hình thức khen thưởng đề nghị: giấy khen + thưởng ${money(2000000, 15000000)}.\n\n` +
+        `Đề nghị Phòng Nhân sự trình cấp có thẩm quyền phê duyệt.`,
+    };
+  },
+];
+
+function generateTestData() {
+  return pick(TEST_TEMPLATES)();
+}
+
+document.getElementById('genTestBtn').addEventListener('click', async () => {
+  const data = generateTestData();
+  await fetch('/bpm/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+    body: JSON.stringify(data),
+  });
+  fetchTasks();
+});
+
+// --- Hạng mục chi phí: các dòng thêm/xoá được trong form tạo task ---
+function addItemRow(name = '', amount = '') {
+  const row = document.createElement('div');
+  row.className = 'item-row';
+  row.innerHTML = `
+    <input type="text" class="item-name" placeholder="Tên hạng mục" value="${escapeHtml(name)}" />
+    <input type="text" class="item-amount" placeholder="Số tiền" value="${escapeHtml(amount)}" />
+    <button type="button" class="remove-item" title="Xoá dòng">✕</button>
+  `;
+  row.querySelector('.remove-item').addEventListener('click', () => row.remove());
+  document.getElementById('itemsContainer').appendChild(row);
+}
+
+document.getElementById('addItemBtn').addEventListener('click', () => addItemRow());
+
+addItemRow('Vé máy bay khứ hồi (4 người)', '12,400,000đ');
+addItemRow('Khách sạn 3 đêm', '6,000,000đ');
+addItemRow('Phụ cấp công tác', '4,000,000đ');
+
+// Gộp các mục tách rời trong form (lý do / hạng mục / hạn xử lý) thành 1
+// chuỗi "detail" duy nhất — schema task (src/bpm/store.ts) chỉ có 1 field
+// detail dạng text, tách mục chỉ là UX khi nhập, không đổi model dữ liệu.
+function buildDetailText(reason, deadline) {
+  const items = [...document.querySelectorAll('#itemsContainer .item-row')]
+    .map((row) => ({
+      name: row.querySelector('.item-name').value.trim(),
+      amount: row.querySelector('.item-amount').value.trim(),
+    }))
+    .filter((it) => it.name || it.amount)
+    .map((it) => (it.amount ? `- ${it.name}: ${it.amount}` : `- ${it.name}`));
+
+  let text = `Lý do đề nghị: ${reason.trim()}`;
+  if (items.length) text += `\n\nHạng mục:\n${items.join('\n')}`;
+  if (deadline.trim()) text += `\n\nHạn xử lý mong muốn: ${deadline.trim()}`;
+  return text;
+}
+
+document.getElementById('newTaskForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = new FormData(e.target);
+  await fetch('/bpm/tasks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+    body: JSON.stringify({
+      title: form.get('title'),
+      requester: form.get('requester'),
+      detail: buildDetailText(form.get('reason') || '', form.get('deadline') || ''),
+      assigneeEmail: form.get('assigneeEmail') || undefined,
+    }),
+  });
+  fetchTasks();
+});
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+fetchTasks();
+setInterval(fetchTasks, 2000);
+</script>
+</body>
+</html>
