@@ -119,6 +119,14 @@
 
   .empty { padding: 2.2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
 
+  .filter-bar { padding: 0.7rem 0.9rem; margin-bottom: 0.7rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .filter-bar select,
+  .filter-bar input {
+    padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 0.85rem; background: #fff; color: var(--text);
+  }
+  .filter-bar input { flex: 1; min-width: 180px; }
+
   .items-container { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .item-row { display: flex; gap: 6px; align-items: center; }
   .item-row .item-name { flex: 1; }
@@ -171,7 +179,7 @@
     </div>
     <div class="field">
       <label for="assigneeInput">Email người duyệt (assignee) <span class="opt">— để trống dùng mặc định</span></label>
-      <input id="assigneeInput" name="assigneeEmail" type="email" placeholder="approver@cmctssg.space" />
+      <input id="assigneeInput" name="assigneeEmail" type="email" placeholder="adminapps@cmctssg.space" />
     </div>
     <div class="field">
       <label for="reasonInput">Lý do đề nghị</label>
@@ -196,6 +204,16 @@
     <h2>Danh sách task</h2>
     <span class="count" id="taskCount"></span>
   </div>
+  <div class="filter-bar card">
+    <select id="statusFilter">
+      <option value="">Tất cả trạng thái</option>
+      <option value="PENDING">Chờ duyệt</option>
+      <option value="APPROVED">Đã đồng ý</option>
+      <option value="REJECTED">Đã từ chối</option>
+      <option value="CANCELLED">Đã huỷ</option>
+    </select>
+    <input type="text" id="searchFilter" placeholder="Tìm theo tiêu đề / người đề nghị..." />
+  </div>
   <div class="task-list" id="taskList"></div>
 
 </div>
@@ -206,18 +224,36 @@
 // mã nguồn trang này). Xem docs/power-automate-flows.md.
 const API_KEY = 'cfyQMVKyX2-5O5dEIV8TOgxx3T8ksaTB';
 
+let allTasks = [];
+
 async function fetchTasks() {
   const res = await fetch('/bpm/tasks');
-  const tasks = await res.json();
-  render(tasks);
+  allTasks = await res.json();
+  applyFilters();
 }
 
-function render(tasks) {
+function applyFilters() {
+  const status = document.getElementById('statusFilter').value;
+  const q = document.getElementById('searchFilter').value.trim().toLowerCase();
+  const filtered = allTasks.filter((t) => {
+    if (status && t.status !== status) return false;
+    if (q && !`${t.title} ${t.requester}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  render(filtered, allTasks.length);
+}
+
+document.getElementById('statusFilter').addEventListener('change', applyFilters);
+document.getElementById('searchFilter').addEventListener('input', applyFilters);
+
+function render(tasks, total = tasks.length) {
   const list = document.getElementById('taskList');
-  document.getElementById('taskCount').textContent = tasks.length ? `${tasks.length} task` : '';
+  document.getElementById('taskCount').textContent = total
+    ? (tasks.length === total ? `${total} task` : `${tasks.length}/${total} task`)
+    : '';
 
   if (!tasks.length) {
-    list.innerHTML = '<div class="card empty">Chưa có task nào. Tạo 1 task ở form phía trên để bắt đầu.</div>';
+    list.innerHTML = `<div class="card empty">${total ? 'Không có task nào khớp bộ lọc.' : 'Chưa có task nào. Tạo 1 task ở form phía trên để bắt đầu.'}</div>`;
     return;
   }
 

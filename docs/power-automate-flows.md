@@ -27,6 +27,80 @@ Backend giữ nguyên vai trò "system of record": mọi quyết định — dù
 
 ---
 
+## Thay thế "HTTP" bằng On-premises Data Gateway (nếu tenant chặn action HTTP)
+
+Một số tenant M365 áp **DLP policy** chặn hẳn action **"HTTP"** built-in (rủi ro
+gọi ra bất kỳ endpoint nào) — nếu thêm action HTTP mà báo lỗi dạng *"This
+action isn't supported... blocked by data loss prevention policy"*, thay 2 chỗ
+dùng HTTP bên dưới (Flow B bước 3, Flow A bước 2) bằng 1 **Custom Connector**
+cấu hình chạy qua gateway. Traffic khi đó giới hạn trong phạm vi gateway kiểm
+soát, không gọi tuỳ ý ra Internet như action "HTTP" thường nên thường không bị
+policy đó chặn.
+
+⚠️ Không có action có sẵn tên "HTTP with on-premises data gateway" để chọn
+thẳng trong danh sách action — đây **bắt buộc phải qua Custom Connector**,
+không có đường tắt nào khác.
+
+Lợi ích phụ: dùng gateway thì **không cần ngrok/tunnel công khai nữa** cho 2
+chỗ Power Automate gọi vào server — gateway đóng vai trò cầu nối thay tunnel,
+và không đổi domain mỗi lần restart như ngrok free (chỉ `POWER_AUTOMATE_TASK_CREATED_URL`
+là vẫn cần Power Automate sinh ra bình thường, không liên quan tunnel).
+
+### 1. Cài đặt gateway
+1. Tải **On-premises Data Gateway** (bản **Standard**, KHÔNG chọn Personal
+   mode) từ https://aka.ms/on-premises-data-gateway-download, cài trên máy
+   đang chạy `npm run dev` (hoặc máy khác cùng mạng LAN có thể reach tới
+   server đó).
+2. Đăng nhập bằng đúng tài khoản work/school sẽ dùng để tạo Flow A/B trên
+   Power Automate.
+3. Đặt tên gateway, tạo **Recovery Key** — lưu lại cẩn thận, cần khi cài
+   lại/di chuyển gateway sau này.
+4. Xác nhận gateway hiện **Online** tại https://make.powerautomate.com →
+   **Data** → **Gateways**, dòng "Power Apps, Power Automate" ghi **Ready**.
+
+### 2. Tạo Custom Connector chạy qua gateway
+1. https://make.powerautomate.com → đúng Environment đang dùng cho flow →
+   **Data** (thanh bên trái) → **Custom connectors** → **+ New custom
+   connector** → **Create from blank** → đặt tên vd `BPM Local API`.
+2. Tab **General**:
+   - **Scheme**: HTTP
+   - **Host**: `localhost:3978` nếu gateway cài trên chính máy chạy server;
+     nếu gateway ở máy khác trong LAN, dùng IP nội bộ của máy chạy server,
+     vd `192.168.1.20:3978`.
+   - **Base URL**: `/`
+   - Tick **"Connect via on-premises data gateway"**.
+3. Tab **Security**: nếu `.env` chưa set `BPM_API_KEY` (mặc định rỗng), chọn
+   **No authentication**. Nếu có set, chọn **API Key**, đặt Parameter label
+   `x-api-key`, Parameter location **Header** — giá trị thật của key sẽ nhập
+   1 lần khi tạo Connection ở bước dưới, không cần gõ lại mỗi flow.
+4. Tab **Definition** → **+ New action**, tạo 2 action tương ứng 2 endpoint
+   đang dùng:
+   - Đặt tên vd `PostTaskAction` → **"+ Import from sample"** → Verb `POST`,
+     URL `/bpm/tasks/{id}/actions`, Header `Content-Type: application/json`,
+     Body mẫu `{"action": "approve", "actor": "test", "source": "MS_TEAMS"}`
+     → Import (Power Automate tự nhận `{id}` thành path parameter).
+   - Nếu cũng dùng Custom Connector này cho Flow A: thêm action
+     `PostTaskCreated` → Verb `POST`, URL `/bpm/tasks`, Body mẫu
+     `{"title": "x", "requester": "x", "detail": "x"}` → Import.
+5. **Save** connector.
+
+### 3. Dùng trong flow
+Ở Flow B bước 3 và Flow A bước 2 (2 chỗ dùng action "HTTP" mô tả bên dưới),
+xoá action "HTTP" cũ → **+ New step** → tìm đúng tên connector vừa tạo (vd
+`BPM Local API`) → chọn action tương ứng (`PostTaskAction`).
+1. Lần đầu dùng, Power Automate yêu cầu tạo **Connection**: chọn **Gateway**
+   vừa cài (vd `lab-approve-msteam`) → nếu Security ở trên là API Key, nhập
+   giá trị `BPM_API_KEY` thật vào đây.
+2. Điền tham số action: `id` = dynamic content lấy từ bước trước (Compose /
+   `triggerBody()?['id']`), `action` = `approve` hoặc `reject` tuỳ nhánh
+   True/False, `actor`/`source` điền như mô tả ở Flow A/B bên dưới.
+
+> Nếu tenant vẫn chặn Custom Connector chạy qua gateway (một số policy chặn
+> theo nhóm rộng hơn), cần nhờ admin tenant thêm connector này vào nhóm được
+> phép trong **Power Platform admin center → Data policies**.
+
+---
+
 ## Flow B — Task mới → Adaptive Card trên Teams → callback quyết định
 
 Thay toàn bộ `src/bot/*`. Nhận tín hiệu "có task mới" cho **mọi nguồn tạo task**
@@ -96,6 +170,10 @@ dùng ở bước sau, không cần đi vòng qua card.)
 
 ### 3. Action — HTTP: gọi lại action endpoint
 
+> Nếu tenant chặn action "HTTP" qua DLP policy, dùng "HTTP with on-premises
+> data gateway" thay thế — xem mục **"Thay thế 'HTTP' bằng On-premises Data
+> Gateway"** ở trên.
+
 Sau khi action trên nhận được phản hồi (output của nó chứa `data` — object
 `{ action: "approve" | "reject" | "cancel" }` mà user vừa bấm — và thông tin
 người phản hồi, xem trong dynamic content picker sau khi thêm action, thường có
@@ -143,6 +221,11 @@ Thay `src/email/imapListener.ts` và `src/email/graphWebhook.ts`.
 hệt logic `subjectMatches` trong `imapListener.ts:59`.
 
 **Nhánh Yes** (subject đúng):
+
+> Nếu tenant chặn action "HTTP" qua DLP policy, dùng "HTTP with on-premises
+> data gateway" thay thế — xem mục **"Thay thế 'HTTP' bằng On-premises Data
+> Gateway"** ở trên.
+
 - Action "Html to text" (connector Content Conversion, có sẵn) trên `Body` của
   trigger → tương đương `stripHtml()` trong `imapListener.ts:14-19`.
 - HTTP POST `{tunnelUrl}/bpm/tasks`, header `x-api-key`, body:

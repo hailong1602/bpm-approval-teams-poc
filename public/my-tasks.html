@@ -31,6 +31,14 @@
   .warn { border-left: 3px solid var(--brand); background: #fff; border-radius: 4px; padding: 0.6rem 0.8rem; font-size: 0.76rem; color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5; }
   .warn strong { color: var(--text); }
 
+  .filter-bar { background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 0.65rem 0.8rem; margin-bottom: 0.7rem; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .filter-bar select,
+  .filter-bar input {
+    padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px;
+    font-family: inherit; font-size: 0.82rem; background: #fff; color: var(--text);
+  }
+  .filter-bar input { flex: 1; min-width: 140px; }
+
   /* --- list view --- */
   .row { background: var(--card); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); padding: 0.8rem 0.95rem; margin-bottom: 0.55rem; }
   .row-main { cursor: pointer; }
@@ -68,6 +76,16 @@
 </div>
 <p class="sub" id="whoami">Đang tải danh sách...</p>
 <div class="warn"><strong>Lưu ý:</strong> Danh tính lấy từ Teams context chỉ dùng để lọc hiển thị trong bản spike này — <strong>không</strong> phải bằng chứng xác thực. Production cần Teams SSO (xác minh token phía server) trước khi tin actor này.</div>
+<div class="filter-bar" id="filterBar">
+  <select id="statusFilter">
+    <option value="">Tất cả trạng thái</option>
+    <option value="PENDING">Chờ duyệt</option>
+    <option value="APPROVED">Đã đồng ý</option>
+    <option value="REJECTED">Đã từ chối</option>
+    <option value="CANCELLED">Đã huỷ</option>
+  </select>
+  <input type="text" id="searchFilter" placeholder="Tìm theo tiêu đề / người đề nghị..." />
+</div>
 <div id="view"></div>
 
 <script>
@@ -108,20 +126,33 @@ async function loadTasks() {
   renderCurrentView();
 }
 
+function applyFilters() {
+  const status = document.getElementById('statusFilter').value;
+  const q = document.getElementById('searchFilter').value.trim().toLowerCase();
+  return allTasks.filter((t) => {
+    if (status && t.status !== status) return false;
+    if (q && !`${t.title} ${t.requester}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
 function renderCurrentView() {
   const selected = selectedTaskId && allTasks.find(t => t.id === selectedTaskId);
+  const filterBar = document.getElementById('filterBar');
   if (selected) {
+    filterBar.style.display = 'none';
     renderDetail(selected);
   } else {
     selectedTaskId = null;
-    renderList(allTasks);
+    filterBar.style.display = '';
+    renderList(applyFilters());
   }
 }
 
 function renderList(tasks) {
   const view = document.getElementById('view');
   if (!tasks.length) {
-    view.innerHTML = '<div class="empty">Không có task nào đang chờ bạn.</div>';
+    view.innerHTML = `<div class="empty">${allTasks.length ? 'Không có task nào khớp bộ lọc.' : 'Không có task nào đang chờ bạn.'}</div>`;
     return;
   }
   view.innerHTML = tasks.map(t => `
@@ -151,6 +182,9 @@ function renderDetail(t) {
     </div>
   `;
 }
+
+document.getElementById('statusFilter').addEventListener('change', renderCurrentView);
+document.getElementById('searchFilter').addEventListener('input', renderCurrentView);
 
 function openDetail(id) {
   selectedTaskId = id;
