@@ -42,14 +42,17 @@ taskStore.events.on("task:created", (task) => {
   }).catch((err) => console.error("[power-automate] failed to notify task:created", err));
 });
 
-// No task:updated listener: unlike the old Bot Framework card, Power
-// Automate's "Post adaptive card and wait for a response" can't be updated
-// from outside while it's waiting, so there's nothing to push a re-sync to.
-// If a decision is made elsewhere (BPM screen / My Tasks tab) before the
-// Teams card is answered, Flow B's callback to POST /bpm/tasks/:id/actions
-// simply gets a 409 from applyAction() and stops — data stays correct, the
-// card just may look stale until someone acts on it. See
-// docs/power-automate-flows.md for the full tradeoff.
+// No task:updated listener: there is no supported way to withdraw a pending
+// Teams approval from outside (Power Automate's Approvals connector has no
+// "cancel" action, and the undocumented Teams Approvals API needs premium
+// tenant-admin consent — not worth the fragility). If a decision is made
+// elsewhere (BPM screen / My Tasks tab) before the Teams approval is
+// answered, the approval card just sits there until someone acts on it —
+// Flow B's callback to POST /bpm/tasks/:id/actions then gets a 409 from
+// applyAction() and, per Flow B step 6 in docs/power-automate-flows.md,
+// replies in Teams telling the responder the task was already decided.
+// Data always stays correct either way; this only affects how stale the
+// card looks in the meantime.
 
 app.listen(config.port, () => {
   console.log(`Mock BPM screen:      http://localhost:${config.port}/`);

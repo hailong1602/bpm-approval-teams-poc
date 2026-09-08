@@ -21,7 +21,8 @@ Backend giữ nguyên vai trò "system of record": mọi quyết định — dù
 - `.env` đã có sẵn `BPM_API_KEY` — mọi HTTP action gọi vào
   `POST {tunnelUrl}/bpm/tasks` hoặc `POST {tunnelUrl}/bpm/tasks/:id/actions`
   đều phải kèm header `x-api-key: <giá trị BPM_API_KEY>`, nếu không sẽ nhận
-  `401`.
+  `401`. Riêng `GET {tunnelUrl}/bpm/tasks/:id` (dùng ở Flow B bước 5) không cần
+  header này — route đọc không có `requireApiKey`.
 - Dựng **Flow B trước** — vì `POWER_AUTOMATE_TASK_CREATED_URL` trong `.env` cần
   URL do Flow B sinh ra sau khi lưu flow lần đầu.
 
@@ -31,8 +32,8 @@ Backend giữ nguyên vai trò "system of record": mọi quyết định — dù
 
 Một số tenant M365 áp **DLP policy** chặn hẳn action **"HTTP"** built-in (rủi ro
 gọi ra bất kỳ endpoint nào) — nếu thêm action HTTP mà báo lỗi dạng *"This
-action isn't supported... blocked by data loss prevention policy"*, thay 2 chỗ
-dùng HTTP bên dưới (Flow B bước 3, Flow A bước 2) bằng 1 **Custom Connector**
+action isn't supported... blocked by data loss prevention policy"*, thay các
+chỗ dùng HTTP bên dưới (Flow B bước 4/5, Flow A bước 2) bằng 1 **Custom Connector**
 cấu hình chạy qua gateway. Traffic khi đó giới hạn trong phạm vi gateway kiểm
 soát, không gọi tuỳ ý ra Internet như action "HTTP" thường nên thường không bị
 policy đó chặn.
@@ -41,16 +42,16 @@ policy đó chặn.
 thẳng trong danh sách action — đây **bắt buộc phải qua Custom Connector**,
 không có đường tắt nào khác.
 
-Lợi ích phụ: dùng gateway thì **không cần ngrok/tunnel công khai nữa** cho 2
+Lợi ích phụ: dùng gateway thì **không cần ngrok/tunnel công khai nữa** cho các
 chỗ Power Automate gọi vào server — gateway đóng vai trò cầu nối thay tunnel,
 và không đổi domain mỗi lần restart như ngrok free (chỉ `POWER_AUTOMATE_TASK_CREATED_URL`
 là vẫn cần Power Automate sinh ra bình thường, không liên quan tunnel).
 
 ### 1. Cài đặt gateway
 1. Tải **On-premises Data Gateway** (bản **Standard**, KHÔNG chọn Personal
-   mode) từ https://aka.ms/on-premises-data-gateway-download, cài trên máy
-   đang chạy `npm run dev` (hoặc máy khác cùng mạng LAN có thể reach tới
-   server đó).
+   mode) từ https://www.microsoft.com/en-us/download/details.aspx?id=53127,
+   cài trên máy đang chạy `npm run dev` (hoặc máy khác cùng mạng LAN có thể
+   reach tới server đó).
 2. Đăng nhập bằng đúng tài khoản work/school sẽ dùng để tạo Flow A/B trên
    Power Automate.
 3. Đặt tên gateway, tạo **Recovery Key** — lưu lại cẩn thận, cần khi cài
@@ -73,7 +74,7 @@ là vẫn cần Power Automate sinh ra bình thường, không liên quan tunnel
    **No authentication**. Nếu có set, chọn **API Key**, đặt Parameter label
    `x-api-key`, Parameter location **Header** — giá trị thật của key sẽ nhập
    1 lần khi tạo Connection ở bước dưới, không cần gõ lại mỗi flow.
-4. Tab **Definition** → **+ New action**, tạo 2 action tương ứng 2 endpoint
+4. Tab **Definition** → **+ New action**, tạo action tương ứng từng endpoint
    đang dùng:
    - Đặt tên vd `PostTaskAction` → **"+ Import from sample"** → Verb `POST`,
      URL `/bpm/tasks/{id}/actions`, Header `Content-Type: application/json`,
@@ -82,12 +83,14 @@ là vẫn cần Power Automate sinh ra bình thường, không liên quan tunnel
    - Nếu cũng dùng Custom Connector này cho Flow A: thêm action
      `PostTaskCreated` → Verb `POST`, URL `/bpm/tasks`, Body mẫu
      `{"title": "x", "requester": "x", "detail": "x"}` → Import.
+   - Nếu cũng dùng Custom Connector này cho Flow B bước 5 (đọc task khi 409):
+     thêm action `GetTask` → Verb `GET`, URL `/bpm/tasks/{id}` → Import.
 5. **Save** connector.
 
 ### 3. Dùng trong flow
-Ở Flow B bước 3 và Flow A bước 2 (2 chỗ dùng action "HTTP" mô tả bên dưới),
+Ở các chỗ dùng action "HTTP" mô tả bên dưới (Flow B bước 4/5, Flow A bước 2),
 xoá action "HTTP" cũ → **+ New step** → tìm đúng tên connector vừa tạo (vd
-`BPM Local API`) → chọn action tương ứng (`PostTaskAction`).
+`BPM Local API`) → chọn action tương ứng (`PostTaskAction`/`PostTaskCreated`/`GetTask`).
 1. Lần đầu dùng, Power Automate yêu cầu tạo **Connection**: chọn **Gateway**
    vừa cài (vd `lab-approve-msteam`) → nếu Security ở trên là API Key, nhập
    giá trị `BPM_API_KEY` thật vào đây.
@@ -101,7 +104,7 @@ xoá action "HTTP" cũ → **+ New step** → tìm đúng tên connector vừa t
 
 ---
 
-## Flow B — Task mới → Adaptive Card trên Teams → callback quyết định
+## Flow B — Task mới → Approval trên Teams → callback quyết định
 
 Thay toàn bộ `src/bot/*`. Nhận tín hiệu "có task mới" cho **mọi nguồn tạo task**
 (form BPM, `npm run trigger`, hay Flow A bên dưới) — vì `server.ts` gọi vào flow
@@ -132,52 +135,23 @@ POWER_AUTOMATE_TASK_CREATED_URL=<url PA vừa sinh>
 ```
 → restart server (`node node_modules\tsx\dist\cli.mjs watch src/server.ts`).
 
-### 2. Action — "Post adaptive card and wait for a response" (connector Microsoft Teams)
+### 2. Action — "Create an approval" (connector Approvals)
 
-- **Recipient**: `assigneeEmail` (dynamic content từ trigger)
-- **Message** (dán nguyên JSON sau vào chế độ "raw" của card editor — dịch từ
-  `buildApprovalCard()` trong `src/bot/cards.ts:8-56`, thay chỗ nào cần bằng
-  giá trị dynamic content tương ứng trong UI, hoặc paste thẳng biểu thức
-  `@{triggerBody()?['...']}` nếu editor cho sửa raw JSON):
+- **Approval type**: "Approve/Reject - First to respond" (chỉ 1 người duyệt
+  nên loại nào cũng tương đương).
+- **Title**: `@{triggerBody()?['title']}`
+- **Assigned to**: `@{triggerBody()?['assigneeEmail']}`
+- **Details**: `@{triggerBody()?['detail']}`
 
-```json
-{
-  "type": "AdaptiveCard",
-  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-  "version": "1.4",
-  "body": [
-    { "type": "TextBlock", "text": "Yêu cầu phê duyệt mới", "weight": "Bolder", "size": "Medium", "wrap": true },
-    { "type": "TextBlock", "text": "@{triggerBody()?['title']}", "wrap": true, "spacing": "Small" },
-    {
-      "type": "FactSet",
-      "facts": [
-        { "title": "Người đề nghị", "value": "@{triggerBody()?['requester']}" },
-        { "title": "Mã task", "value": "@{substring(triggerBody()?['id'], 0, 8)}" },
-        { "title": "Thời gian", "value": "@{formatDateTime(triggerBody()?['createdAt'], 'dd/MM/yyyy HH:mm')}" }
-      ]
-    }
-  ],
-  "actions": [
-    { "type": "Action.Submit", "title": "✅ Đồng ý", "style": "positive", "data": { "action": "approve" } },
-    { "type": "Action.Submit", "title": "❌ Từ chối", "style": "destructive", "data": { "action": "reject" } },
-    { "type": "Action.Submit", "title": "🚫 Huỷ", "data": { "action": "cancel" } }
-  ]
-}
-```
+### 3. Action — "Wait for an approval"
 
-(Không cần nhét `taskId` vào `data` — flow đã có sẵn `triggerBody()?['id']` để
-dùng ở bước sau, không cần đi vòng qua card.)
+- **Approval Id**: dynamic content Approval ID từ output bước 2.
 
-### 3. Action — HTTP: gọi lại action endpoint
+Action này mới thực sự **chờ**. Khi có người bấm Approve/Reject trên Teams,
+action hoàn tất với `Outcome` (`Approve`/`Reject`) và thông tin người phản hồi
+trong `responses[]`.
 
-> Nếu tenant chặn action "HTTP" qua DLP policy, dùng "HTTP with on-premises
-> data gateway" thay thế — xem mục **"Thay thế 'HTTP' bằng On-premises Data
-> Gateway"** ở trên.
-
-Sau khi action trên nhận được phản hồi (output của nó chứa `data` — object
-`{ action: "approve" | "reject" | "cancel" }` mà user vừa bấm — và thông tin
-người phản hồi, xem trong dynamic content picker sau khi thêm action, thường có
-tên/email dạng `Responder ...`):
+### 4. Action — HTTP: gọi lại action endpoint
 
 - **Method**: POST
 - **URI**: `{tunnelUrl}/bpm/tasks/@{triggerBody()?['id']}/actions`
@@ -185,20 +159,47 @@ tên/email dạng `Responder ...`):
 - **Body**:
   ```json
   {
-    "action": "@{body('Post_adaptive_card_and_wait_for_a_response')?['data']?['action']}",
-    "actor": "@{body('Post_adaptive_card_and_wait_for_a_response')?['responder']?['name']}",
+    "action": "@{if(equals(outputs('Wait_for_an_approval')?['body/Outcome'], 'Approve'), 'approve', 'reject')}",
+    "actor": "@{outputs('Wait_for_an_approval')?['body/responses']?[0]?['responderInfo']?['displayName']}",
     "source": "MS_TEAMS"
   }
   ```
-  (Tên chính xác của output "responder" phụ thuộc phiên bản connector — kiểm
-  tra trong dynamic content picker, không cố định tuyệt đối như trên.)
+  (Đường dẫn chính xác tới tên người phản hồi trong `responses[]` tuỳ phiên
+  bản connector — kiểm tra dynamic content picker, không cố định tuyệt đối
+  như trên.)
 
-### 4. Xử lý 409 (task đã được quyết định ở nơi khác)
+### 5. Xử lý 409 — báo cho người bấm biết task đã xử lý rồi
 
-Nếu action trên trả về **409** (BPM screen hoặc My Tasks tab đã quyết định
-task này trong lúc card Teams còn đang chờ) — thêm 1 bước **Configure run
-after** trên 1 action tiếp theo (chạy "has failed") để flow dừng êm, không báo
-lỗi đỏ. Đây là giới hạn cố ý — xem mục "Giới hạn" bên dưới.
+**Không có cách nào huỷ 1 approval đang chờ từ bên ngoài** (xem mục "Giới hạn"
+cuối tài liệu) — nếu task được quyết định ở màn hình BPM hoặc tab My Tasks
+*trước khi* ai đó bấm Approve/Reject trên card Teams, thì card Teams vẫn đứng
+đó chờ bình thường. Khi cuối cùng có người bấm vào, bước 4 ở trên sẽ nhận về
+**409** (task đã ở trạng thái khác `PENDING`). Thay vì để flow dừng lỗi âm
+thầm, thêm nhánh báo lại cho đúng người vừa bấm biết thao tác của họ không có
+tác dụng:
+
+- Thêm **Configure run after** trên 1 action mới, chạy khi bước 4 **"has
+  failed"**.
+- Trong nhánh đó, thêm 2 action:
+  1. **HTTP GET** `{tunnelUrl}/bpm/tasks/@{triggerBody()?['id']}` (không cần
+     header `x-api-key` — route đọc không yêu cầu) → lấy `decidedBy`/
+     `decidedVia`/`decidedAt` mới nhất của task.
+  2. **"Post message in a chat or channel"** (connector Microsoft Teams) —
+     Post as: **Flow bot**; Post in: **Chat with a user**; User:
+     `@{outputs('Wait_for_an_approval')?['body/responses']?[0]?['responderInfo']?['email']}`
+     (hoặc field tương đương trong dynamic content — kiểm tra tên chính xác);
+     Message, ví dụ:
+     ```
+     Yêu cầu "@{triggerBody()?['title']}" đã được xử lý trước đó (bởi
+     @{body('HTTP_GET')?['decidedBy']} lúc
+     @{formatDateTime(body('HTTP_GET')?['decidedAt'], 'dd/MM/yyyy HH:mm')},
+     qua @{body('HTTP_GET')?['decidedVia']}). Thao tác vừa rồi của bạn trên
+     Teams không được áp dụng.
+     ```
+
+Dữ liệu ở backend luôn đúng dù bước này có làm hay không (nhờ check 409 sẵn
+có trong `taskStore.applyAction()`) — bước 5 chỉ để trải nghiệm người dùng tốt
+hơn, không bắt buộc phải có.
 
 ---
 
@@ -247,12 +248,26 @@ bảo chỉ sender được tin tưởng mới tới được đây, giống lý
 
 ## Giới hạn cố ý (so với bản Bot Framework cũ)
 
-- **Không đồng bộ ngược card đã gửi**: nếu quyết định đến từ màn hình BPM hoặc
-  tab My Tasks trong lúc Flow B đang ở bước "wait for a response", card Teams
-  đã gửi **không tự cập nhật** (khác bản cũ có `syncCardWithLatestStatus` —
-  xem `src/bot/proactive.ts`, giờ không còn được gọi). Dữ liệu vẫn luôn đúng
-  (nhờ check 409 ở Flow B bước 4) — chỉ là card có thể tạm trông như còn chờ dù
-  đã xử lý xong. Chấp nhận đánh đổi này cho bản demo.
+- **Không huỷ được approval đang chờ từ bên ngoài**: đã thử 2 hướng và đều
+  loại — (1) connector Approvals **không có action "Cancel an approval"**
+  built-in; (2) API nội bộ không công bố của Teams
+  (`approvals.teams.microsoft.com`) cần connector premium **"HTTP With
+  Microsoft Entra ID"** + **admin consent cấp tenant**, và có thể bị Microsoft
+  khoá/đổi bất cứ lúc nào vì không phải hợp đồng API chính thức — không đáng
+  đánh đổi cho 1 bản demo. Quay lại Bot Framework (`syncCardWithLatestStatus`
+  trong `src/bot/proactive.ts`, dùng `context.updateActivity()` chính thức) có
+  làm được, nhưng đã chốt **không dùng hướng này**. Kết quả: nếu task được
+  quyết định ở BPM screen/My Tasks tab trước, card Teams **vẫn đứng chờ bình
+  thường cho tới khi có người bấm vào** — lúc đó mới nhận biết được (qua 409 ở
+  Flow B bước 4) và báo lại cho người bấm (Flow B bước 5). Dữ liệu luôn đúng,
+  chỉ là card có thể tạm trông như còn chờ trong lúc đó.
+- **Chỉ Approve/Reject qua card Teams, không còn nút "Huỷ"**: connector
+  Approvals mặc định chỉ hỗ trợ 2 lựa chọn Approve/Reject trên card, khác bản
+  Adaptive Card thô cũ có 3 nút (Đồng ý/Từ chối/Huỷ). Muốn "Huỷ" task thì vẫn
+  làm được, chỉ không bấm trực tiếp trên card Teams — dùng màn hình BPM hoặc
+  tab My Tasks. (Một số tenant có tính năng "Custom Responses for approvals"
+  cho phép thêm lựa chọn tuỳ ý ngoài Approve/Reject — kiểm tra tenant có hỗ
+  trợ không nếu cần khôi phục đủ 3 nút.)
 - **Không còn giữ nguyên `.eml` gốc kèm file đính kèm** cho task tạo từ email —
   Flow A chỉ lấy `Subject`/`From`/`Body` text, không tải MIME thô như
   `imapListener.ts`/`graphWebhook.ts` từng làm. Task tạo từ Flow A sẽ không có

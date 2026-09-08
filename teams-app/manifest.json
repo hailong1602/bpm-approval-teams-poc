@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
   "manifestVersion": "1.16",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "id": "38514aae-7e91-44f7-938e-c64f7e22812d",
   "packageName": "com.cmc.spike.approveonmsteam",
   "developer": {
@@ -27,7 +27,7 @@
     {
       "entityId": "my-tasks",
       "name": "My Tasks",
-      "contentUrl": "https://g3dxfnhr-3978.jpe1.devtunnels.ms/my-tasks.html",
+      "contentUrl": "https://mzlm7pdb-3978.jpe1.devtunnels.ms/my-tasks.html",
       "scopes": ["personal"]
     }
   ],
@@ -40,5 +40,5 @@
     }
   ],
   "permissions": ["identity"],
-  "validDomains": ["g3dxfnhr-3978.jpe1.devtunnels.ms"]
+  "validDomains": ["mzlm7pdb-3978.jpe1.devtunnels.ms"]
 }

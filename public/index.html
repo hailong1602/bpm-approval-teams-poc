@@ -50,26 +50,9 @@
     box-shadow: var(--shadow);
   }
 
-  form.new-task { padding: 1.25rem 1.4rem 1.4rem; margin: 1.5rem 0; }
-  form.new-task h2 { font-size: 0.95rem; margin: 0 0 1rem; }
-  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
-  .field { display: flex; flex-direction: column; gap: 4px; margin-top: 0.7rem; }
-  .field label { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; }
-  .field label .opt { font-weight: 400; color: #9aa1ab; }
-  form.new-task input,
-  form.new-task textarea {
-    padding: 8px 10px;
-    border: 1px solid var(--border);
-    border-radius: 7px;
-    font-family: inherit;
-    font-size: 0.87rem;
-    width: 100%;
-    background: #fff;
-    color: var(--text);
-  }
-  form.new-task input:focus,
-  form.new-task textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,70,229,.12); }
-  form.new-task textarea { resize: vertical; line-height: 1.5; }
+  .new-task { padding: 1.25rem 1.4rem 1.4rem; margin: 1.5rem 0; }
+  .new-task h2 { font-size: 0.95rem; margin: 0 0 0.4rem; }
+  .new-task p.new-task-desc { color: var(--text-muted); font-size: 0.82rem; line-height: 1.5; margin: 0 0 1rem; max-width: 560px; }
 
   .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 1.1rem; }
   button {
@@ -81,8 +64,6 @@
   button:disabled { opacity: 0.4; cursor: default; }
   button.primary { background: var(--primary); border-color: var(--primary); color: #fff; }
   button.primary:hover:not(:disabled) { background: var(--primary-hover); }
-  button.ghost-accent { border-color: var(--border); color: var(--text-muted); background: #fafbfc; }
-  button.ghost-accent:hover:not(:disabled) { border-color: var(--brand); color: var(--brand); background: #fff; }
   button.approve { border-color: var(--green); color: var(--green); }
   button.approve:hover:not(:disabled) { background: var(--green-bg); }
   button.reject { border-color: var(--red); color: var(--red); }
@@ -112,10 +93,28 @@
   .task-actions { display: flex; gap: 6px; margin-top: 0.8rem; }
 
   details.history { margin-top: 0.7rem; }
-  details.history summary { font-size: 0.76rem; color: var(--text-muted); cursor: pointer; user-select: none; }
+  details.history summary { font-size: 0.76rem; color: var(--text-muted); cursor: pointer; user-select: none; font-weight: 600; }
   details.history summary:hover { color: var(--text); }
-  ul.history-list { font-size: 0.76rem; color: var(--text-muted); margin: 0.4rem 0 0; padding-left: 1.1rem; }
-  ul.history-list li { margin-bottom: 2px; }
+
+  .timeline { margin: 0.8rem 0 0; }
+  .timeline-item { position: relative; display: flex; gap: 10px; padding-left: 2px; padding-bottom: 14px; }
+  .timeline-item::before {
+    content: ''; position: absolute; left: 9px; top: 20px; bottom: -2px; width: 1px; background: var(--border);
+  }
+  .timeline-item:last-child { padding-bottom: 0; }
+  .timeline-item:last-child::before { display: none; }
+  .timeline-dot {
+    flex-shrink: 0; width: 19px; height: 19px; border-radius: 50%; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.62rem; font-weight: 700; color: #fff; background: #9aa1ab;
+  }
+  .timeline-dot.created { background: var(--brand); }
+  .timeline-dot.approved { background: var(--green); }
+  .timeline-dot.rejected { background: var(--red); }
+  .timeline-dot.cancelled { background: #6b7280; }
+  .timeline-body { flex: 1; padding-top: 1px; }
+  .timeline-event { font-size: 0.79rem; color: var(--text); line-height: 1.4; }
+  .timeline-time { font-size: 0.71rem; color: var(--text-muted); margin-top: 2px; }
 
   .empty { padding: 2.2rem 1rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }
 
@@ -127,28 +126,6 @@
   }
   .filter-bar input { flex: 1; min-width: 180px; }
 
-  .items-container { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .item-row { display: flex; gap: 6px; align-items: center; }
-  .item-row .item-name { flex: 1; }
-  .item-row .item-amount { width: 150px; flex-shrink: 0; }
-  .item-row .remove-item {
-    flex-shrink: 0; width: 32px; height: 32px; padding: 0;
-    display: flex; align-items: center; justify-content: center;
-    border-radius: 7px; border: 1px solid var(--border); background: #fff; color: #9aa1ab; font-size: 0.8rem;
-  }
-  .item-row .remove-item:hover { background: var(--red-bg); border-color: var(--red); color: var(--red); }
-  .add-item-btn {
-    padding: 6px 12px; font-size: 0.8rem; font-weight: 600;
-    border: 1px dashed var(--border); border-radius: 7px; background: #fafbfc; color: var(--text-muted);
-    cursor: pointer;
-  }
-  .add-item-btn:hover { border-color: var(--primary); color: var(--primary); background: #f5f5ff; }
-
-  @media (max-width: 560px) {
-    .field-row { grid-template-columns: 1fr; }
-    .item-row { flex-wrap: wrap; }
-    .item-row .item-amount { width: 100%; }
-  }
 </style>
 </head>
 <body>
@@ -165,40 +142,13 @@
     <p class="sub">Task được duyệt / từ chối / huỷ từ đây <strong>hoặc</strong> từ nút bấm trên Microsoft Teams đều đi qua một action endpoint duy nhất, nên trạng thái luôn khớp nhau.</p>
   </header>
 
-  <form class="new-task card" id="newTaskForm">
+  <div class="new-task card">
     <h2>Tạo task mới (giả lập &quot;task đến&quot;)</h2>
-    <div class="field-row">
-      <div class="field">
-        <label for="titleInput">Tiêu đề yêu cầu</label>
-        <input id="titleInput" name="title" placeholder="Tiêu đề yêu cầu" value="Đề nghị chi tạm ứng 5,000,000 VND" required />
-      </div>
-      <div class="field">
-        <label for="requesterInput">Người đề nghị</label>
-        <input id="requesterInput" name="requester" placeholder="Người đề nghị" value="Nguyễn Văn A" required />
-      </div>
-    </div>
-    <div class="field">
-      <label for="assigneeInput">Email người duyệt (assignee) <span class="opt">— để trống dùng mặc định</span></label>
-      <input id="assigneeInput" name="assigneeEmail" type="email" placeholder="adminapps@cmctssg.space" />
-    </div>
-    <div class="field">
-      <label for="reasonInput">Lý do đề nghị</label>
-      <textarea id="reasonInput" name="reason" rows="2" placeholder="Lý do đề nghị..." required>Bổ sung chi phí công tác quý 3 cho đoàn khảo sát chi nhánh Cần Thơ. Đã có xác nhận sơ bộ từ Trưởng phòng Kế hoạch.</textarea>
-    </div>
-    <div class="field">
-      <label>Hạng mục chi phí <span class="opt">— tuỳ chọn, thêm được nhiều dòng</span></label>
-      <div class="items-container" id="itemsContainer"></div>
-      <button type="button" id="addItemBtn" class="add-item-btn">+ Thêm hạng mục</button>
-    </div>
-    <div class="field">
-      <label for="deadlineInput">Hạn xử lý mong muốn <span class="opt">— tuỳ chọn</span></label>
-      <input id="deadlineInput" name="deadline" placeholder="vd: trước 10/08 để kịp lịch công tác" value="trước 10/08 để kịp lịch công tác" />
-    </div>
+    <p class="new-task-desc">Sinh 1 task ngẫu nhiên với nội dung nghiệp vụ đa dạng (tài chính, nhân sự, mua sắm, CNTT, tín dụng...) để test nhanh luồng phê duyệt.</p>
     <div class="btn-row">
-      <button type="submit" class="primary">Tạo task mới</button>
-      <button type="button" id="genTestBtn" class="ghost-accent">Tạo dữ liệu test ngẫu nhiên</button>
+      <button type="button" id="genTestBtn" class="primary">🎲 Tạo task ngẫu nhiên</button>
     </div>
-  </form>
+  </div>
 
   <div class="list-header">
     <h2>Danh sách task</h2>
@@ -225,6 +175,16 @@
 const API_KEY = 'cfyQMVKyX2-5O5dEIV8TOgxx3T8ksaTB';
 
 let allTasks = [];
+const expandedHistory = new Set();
+
+// <details> re-created on every poll re-render would reset to closed —
+// track open/closed per task id here and re-apply it after each render.
+document.getElementById('taskList').addEventListener('toggle', (e) => {
+  const details = e.target;
+  if (!details.classList.contains('history')) return;
+  const id = details.dataset.taskId;
+  if (details.open) expandedHistory.add(id); else expandedHistory.delete(id);
+}, true);
 
 async function fetchTasks() {
   const res = await fetch('/bpm/tasks');
@@ -253,7 +213,7 @@ function render(tasks, total = tasks.length) {
     : '';
 
   if (!tasks.length) {
-    list.innerHTML = `<div class="card empty">${total ? 'Không có task nào khớp bộ lọc.' : 'Chưa có task nào. Tạo 1 task ở form phía trên để bắt đầu.'}</div>`;
+    list.innerHTML = `<div class="card empty">${total ? 'Không có task nào khớp bộ lọc.' : 'Chưa có task nào. Bấm nút "Tạo task ngẫu nhiên" phía trên để bắt đầu.'}</div>`;
     return;
   }
 
@@ -279,12 +239,33 @@ function render(tasks, total = tasks.length) {
         <button class="reject" ${t.status !== 'PENDING' ? 'disabled' : ''} onclick="act('${t.id}','reject')">Từ chối</button>
         <button class="cancel" ${t.status !== 'PENDING' ? 'disabled' : ''} onclick="act('${t.id}','cancel')">Huỷ</button>
       </div>
-      <details class="history">
+      <details class="history" data-task-id="${t.id}" ${expandedHistory.has(t.id) ? 'open' : ''}>
         <summary>Lịch sử (${t.history.length})</summary>
-        <ul class="history-list">${t.history.map(h => `<li>${new Date(h.at).toLocaleTimeString('vi-VN')} — ${escapeHtml(h.event)}</li>`).join('')}</ul>
+        ${renderTimeline(t.history)}
       </details>
     </div>
   `).join('');
+}
+
+function historyDot(event) {
+  if (event.startsWith('APPROVED')) return { cls: 'approved', icon: '✓' };
+  if (event.startsWith('REJECTED')) return { cls: 'rejected', icon: '✕' };
+  if (event.startsWith('CANCELLED')) return { cls: 'cancelled', icon: '–' };
+  return { cls: 'created', icon: '+' };
+}
+
+function renderTimeline(history) {
+  return `<div class="timeline">${history.map(h => {
+    const { cls, icon } = historyDot(h.event);
+    return `
+      <div class="timeline-item">
+        <div class="timeline-dot ${cls}">${icon}</div>
+        <div class="timeline-body">
+          <div class="timeline-event">${escapeHtml(h.event)}</div>
+          <div class="timeline-time">${new Date(h.at).toLocaleString('vi-VN')}</div>
+        </div>
+      </div>`;
+  }).join('')}</div>`;
 }
 
 async function act(id, action) {
@@ -493,59 +474,6 @@ document.getElementById('genTestBtn').addEventListener('click', async () => {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
     body: JSON.stringify(data),
-  });
-  fetchTasks();
-});
-
-// --- Hạng mục chi phí: các dòng thêm/xoá được trong form tạo task ---
-function addItemRow(name = '', amount = '') {
-  const row = document.createElement('div');
-  row.className = 'item-row';
-  row.innerHTML = `
-    <input type="text" class="item-name" placeholder="Tên hạng mục" value="${escapeHtml(name)}" />
-    <input type="text" class="item-amount" placeholder="Số tiền" value="${escapeHtml(amount)}" />
-    <button type="button" class="remove-item" title="Xoá dòng">✕</button>
-  `;
-  row.querySelector('.remove-item').addEventListener('click', () => row.remove());
-  document.getElementById('itemsContainer').appendChild(row);
-}
-
-document.getElementById('addItemBtn').addEventListener('click', () => addItemRow());
-
-addItemRow('Vé máy bay khứ hồi (4 người)', '12,400,000đ');
-addItemRow('Khách sạn 3 đêm', '6,000,000đ');
-addItemRow('Phụ cấp công tác', '4,000,000đ');
-
-// Gộp các mục tách rời trong form (lý do / hạng mục / hạn xử lý) thành 1
-// chuỗi "detail" duy nhất — schema task (src/bpm/store.ts) chỉ có 1 field
-// detail dạng text, tách mục chỉ là UX khi nhập, không đổi model dữ liệu.
-function buildDetailText(reason, deadline) {
-  const items = [...document.querySelectorAll('#itemsContainer .item-row')]
-    .map((row) => ({
-      name: row.querySelector('.item-name').value.trim(),
-      amount: row.querySelector('.item-amount').value.trim(),
-    }))
-    .filter((it) => it.name || it.amount)
-    .map((it) => (it.amount ? `- ${it.name}: ${it.amount}` : `- ${it.name}`));
-
-  let text = `Lý do đề nghị: ${reason.trim()}`;
-  if (items.length) text += `\n\nHạng mục:\n${items.join('\n')}`;
-  if (deadline.trim()) text += `\n\nHạn xử lý mong muốn: ${deadline.trim()}`;
-  return text;
-}
-
-document.getElementById('newTaskForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const form = new FormData(e.target);
-  await fetch('/bpm/tasks', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
-    body: JSON.stringify({
-      title: form.get('title'),
-      requester: form.get('requester'),
-      detail: buildDetailText(form.get('reason') || '', form.get('deadline') || ''),
-      assigneeEmail: form.get('assigneeEmail') || undefined,
-    }),
   });
   fetchTasks();
 });
